@@ -34,6 +34,10 @@ jobs:
             docker build . --file Dockerfile
 
             expected="$GITHUB_REPOSITORY"
+            if [ "$ACTIONS_STEP_DEBUG" = "true" ]
+            then
+              XTRACE=1
+            fi
             resulet_file="$(mktemp)"
             docker run --rm -e GITHUB_TOKEN $(docker build -q .) -f "map(select(.full_name == \"$expected\"))" orgs/Kyash > "$resulet_file" ||
               test $? -le 1
@@ -42,6 +46,7 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
 
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
