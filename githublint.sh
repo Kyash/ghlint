@@ -15,7 +15,6 @@ source "$LIB_DIR/logging.sh"
   source "$sources"
 }
 
-declare -r ARG_MAX="$(getconf ARG_MAX)"
 declare -r CURL_OPTS=${CURL_OPTS:--sfL}
 declare -r GITHUB_API_ORIGIN=${GITHUB_API_ORIGIN:-https://api.github.com}
 declare DEBUG=${DEBUG:-0}
@@ -37,121 +36,135 @@ function usage() {
   } >&2
 }
 
-while getopts "c:de:f:hr:x" opt
-do
-  case "$opt" in
-    c) RC_FILE="$OPTARG" ;;
-    d) DEBUG=1 ;;
-    e) EXTENSIONS="$OPTARG" ;;
-    f) REPO_FILTER="$OPTARG" ;;
-    r) REPORTER="$OPTARG" ;;
-    x) XTRACE=1 ;;
-    h) usage ; exit 0 ;;
-    ?) usage ; exit 1 ;;
-  esac
-done
-shift $((OPTIND - 1))
-
-test $DEBUG -ne 0 -a -f "$RC_FILE" && {
-  printf 'Run-Control file was found. '
-  jq -jcM '.' "$RC_FILE"
-} | logging::debug
-
-if [ $XTRACE -ne 0 ]
-then
-  set -x
-  declare -p
-  bash --version
-  node --version
-  curl --version
-  jq --version
-fi >&2
-
-test $# -eq 1 || { usage ; exit 1; }
-
-declare -r SLUG="$1"
-declare -r ORG="$(echo "$SLUG" | grep '^orgs/' | sed -e 's/^orgs\///')"
-
-CURLRC="$(mktemp)"
-{
-  http::configure_curlrc "$CURL_OPTS" "$(test $DEBUG -ne 0 && echo '-S')"
-  github::configure_curlrc
-} > "$CURLRC"
-
 function finally () {
   logging::debug 'command exited with status %d' $?
   rm -f "$CURLRC"
 }
 
-trap finally EXIT
+function main() {
+  while getopts "c:de:f:hr:x" opt
+  do
+    case "$opt" in
+      c) RC_FILE="$OPTARG" ;;
+      d) DEBUG=1 ;;
+      e) EXTENSIONS="$OPTARG" ;;
+      f) REPO_FILTER="$OPTARG" ;;
+      r) REPORTER="$OPTARG" ;;
+      x) XTRACE=1 ;;
+      h) usage ; exit 0 ;;
+      ?) usage ; exit 1 ;;
+    esac
+  done
+  shift $((OPTIND - 1))
 
-# main
+  test $DEBUG -ne 0 -a -f "$RC_FILE" && {
+    printf 'Run-Control file was found. '
+    jq -jcM '.' "$RC_FILE"
+  } | logging::debug
 
-cd "$(mktemp -d)"
+  if [ $XTRACE -ne 0 ]
+  then
+    set -x
+    declare -p
+    bash --version
+    node --version
+    curl --version
+    jq --version
+  fi >&2
 
-if [ -f "$RC_FILE" ]
-then
-  cat < "$RC_FILE"
-else
-  echo '{}'
-fi > ".githublintrc.json"
+  test $# -eq 1 || { usage ; exit 1; }
 
-rules_dump="$(mktemp)"
-rules::list | while read -r signature
-do
-  eval "$signature" describe
-done | jq -sc '{rules:.}' > "$rules_dump"
+  declare -r SLUG="$1"
+  local org
+  org="$(echo "$SLUG" | grep '^orgs/' | sed -e 's/^orgs\///')"
+  declare -r ORG="$org"
 
-{
-  logging::info 'Fetching %s ...' "$SLUG"
-  org_dump="$(mktemp)"
-  resource_name="$(if [ -n "$ORG" ]; then echo 'organizations'; else echo 'users'; fi)"
-  http::request "${GITHUB_API_ORIGIN}/$SLUG" | jq -c --arg resource_name "$resource_name" '{resources:{($resource_name):[.]}}' > "$org_dump"
-  results_dump="$(mktemp)"
+  local curlrc
+  curlrc="$(mktemp)"
+  declare -r CURLRC="$curlrc"
   {
-    jq -r '.rules|map(.signature)|.[]|select(test("^rules::org::"))' < "$rules_dump" | while read -r func
-    do
-      logging::debug 'Analysing %s about %s ...' "$ORG" "$func"
-      eval "$func" analyze "$ORG" < "$org_dump" || warn '%s fail %s rule.' "$ORG" "$func"
-    done | jq -sc '{results:.}' > "$results_dump"
-  }
-  json_seq::new "$org_dump" "$rules_dump" "$results_dump"
+    http::configure_curlrc "$CURL_OPTS" "$(test $DEBUG -ne 0 && echo '-S')"
+    github::configure_curlrc
+  } > "$CURLRC"
 
-  num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name]|first|.public_repos + .total_private_repos' "$org_dump")"
-  logging::info '%s has %d repositories.' "$SLUG" "$num_of_repos"
-  logging::info 'Fetching %s repositories ...' "$SLUG"
-  http::list "${GITHUB_API_ORIGIN}/${SLUG}/repos" -G -d 'per_page=100' |
-    jq -c "${REPO_FILTER}" |
-    jq -c '.[]' | {
-      count=0
-      while IFS= read -r repo
+  trap finally EXIT
+
+  cd "$(mktemp -d)"
+
+  if [ -f "$RC_FILE" ]
+  then
+    cat < "$RC_FILE"
+  else
+    echo '{}'
+  fi > ".githublintrc.json"
+
+  local rules_dump
+  rules_dump="$(mktemp)"
+  rules::list | while read -r signature
+  do
+    eval "$signature" describe
+  done | jq -sc '{rules:.}' > "$rules_dump"
+
+  {
+    logging::info 'Fetching %s ...' "$SLUG"
+    local org_dump
+    org_dump="$(mktemp)"
+    local resource_name
+    resource_name="$(if [ -n "$ORG" ]; then echo 'organizations'; else echo 'users'; fi)"
+    http::request "${GITHUB_API_ORIGIN}/$SLUG" | jq -c --arg resource_name "$resource_name" '{resources:{($resource_name):[.]}}' > "$org_dump"
+    local results_dump
+    results_dump="$(mktemp)"
+    {
+      jq -r '.rules|map(.signature)|.[]|select(test("^rules::org::"))' < "$rules_dump" | while read -r func
       do
-        progress_rate=$(( ++count * 100 / num_of_repos ))
-        {
-          full_name="$(echo "$repo" | jq -r '.full_name')"
-
-          repo_dump="$(mktemp)"
-          {
-            logging::info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
-            github::fetch_repository "$repo" | jq -c '{resources:{repositories:[.]}}' > "$repo_dump"
-          }
-
-          results_dump="$(mktemp)"
-          {
-            logging::info '(%.0f%%) Analysing %s repository ...' "$progress_rate" "$full_name"
-            jq -r '.rules|map(.signature)|.[]|select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
-            do
-              logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
-              eval "$func" analyze "$full_name" < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
-            done | jq -sc '{results:.}' > "$results_dump"
-          }
-
-          json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
-        } &
-      done
-      wait
-      logging::info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
+        logging::debug 'Analysing %s about %s ...' "$ORG" "$func"
+        eval "$func" analyze "$ORG" < "$org_dump" || warn '%s fail %s rule.' "$ORG" "$func"
+      done | jq -sc '{results:.}' > "$results_dump"
     }
-} | {
-  eval "reporter::to_$REPORTER" "$rules_dump"
+    json_seq::new "$org_dump" "$rules_dump" "$results_dump"
+
+    local num_of_repos
+    num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name]|first|.public_repos + .total_private_repos' "$org_dump")"
+    logging::info '%s has %d repositories.' "$SLUG" "$num_of_repos"
+    logging::info 'Fetching %s repositories ...' "$SLUG"
+    http::list "${GITHUB_API_ORIGIN}/${SLUG}/repos" -G -d 'per_page=100' |
+      jq -c "${REPO_FILTER}" |
+      jq -c '.[]' | {
+        local count=0
+        while IFS= read -r repo
+        do
+          local progress_rate=$(( ++count * 100 / num_of_repos ))
+          {
+            local full_name
+            full_name="$(echo "$repo" | jq -r '.full_name')"
+
+            local repo_dump
+            repo_dump="$(mktemp)"
+            {
+              logging::info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
+              github::fetch_repository "$repo" | jq -c '{resources:{repositories:[.]}}' > "$repo_dump"
+            }
+
+            local results_dump
+            results_dump="$(mktemp)"
+            {
+              logging::info '(%.0f%%) Analysing %s repository ...' "$progress_rate" "$full_name"
+              jq -r '.rules|map(.signature)|.[]|select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
+              do
+                logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
+                eval "$func" analyze "$full_name" < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
+              done | jq -sc '{results:.}' > "$results_dump"
+            }
+
+            json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
+          } &
+        done
+        wait
+        logging::info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
+      }
+  } | {
+    eval "reporter::to_$REPORTER" "$rules_dump"
+  }
 }
+
+main "$@"
