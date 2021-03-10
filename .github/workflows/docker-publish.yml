@@ -38,8 +38,10 @@ jobs:
             docker run --rm -e GITHUB_TOKEN $(docker build -q .) -f "map(select(.full_name == \"$expected\"))" orgs/Kyash > "$resulet_file" ||
               test $? -le 1
             actual="$(< "$resulet_file" grep '^repository\t' | cut -f3 | head -1)"
-            test "$actual" = "expected"
+            test "$actual" = "$expected"
           fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
