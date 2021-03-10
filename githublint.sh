@@ -647,27 +647,30 @@ done | jq -sc '{rules:.}' > "$rules_dump"
       count=0
       while IFS= read -r repo
       do
-        full_name="$(echo "$repo" | jq -r '.full_name')"
         progress_rate=$(( ++count * 100 / num_of_repos ))
-
-        repo_dump="$(mktemp)"
         {
-          info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
-          fetch_repository "$repo" | jq -c '{resources:{repositories:[.]}}' > "$repo_dump"
-        }
+          full_name="$(echo "$repo" | jq -r '.full_name')"
 
-        results_dump="$(mktemp)"
-        {
-          info '(%.0f%%) Analysing %s repository ...' "$progress_rate" "$full_name"
-          jq -r '.rules|map(.signature)|.[]|select(test("_repo_rule$"))' < "$rules_dump" | while read -r func
-          do
-            debug 'Analysing %s repository about %s ...' "$full_name" "$func"
-            eval "$func" analyze "$full_name" < "$repo_dump" || warn '%s repository fail %s rule.' "$full_name" "$func"
-          done | jq -sc '{results:.}' > "$results_dump"
-        }
+          repo_dump="$(mktemp)"
+          {
+            info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
+            fetch_repository "$repo" | jq -c '{resources:{repositories:[.]}}' > "$repo_dump"
+          }
 
-        new_json_sequence "$repo_dump" "$rules_dump" "$results_dump"
+          results_dump="$(mktemp)"
+          {
+            info '(%.0f%%) Analysing %s repository ...' "$progress_rate" "$full_name"
+            jq -r '.rules|map(.signature)|.[]|select(test("_repo_rule$"))' < "$rules_dump" | while read -r func
+            do
+              debug 'Analysing %s repository about %s ...' "$full_name" "$func"
+              eval "$func" analyze "$full_name" < "$repo_dump" || warn '%s repository fail %s rule.' "$full_name" "$func"
+            done | jq -sc '{results:.}' > "$results_dump"
+          }
+
+          new_json_sequence "$repo_dump" "$rules_dump" "$results_dump"
+        } &
       done
+      wait
       info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
     }
 } | {
