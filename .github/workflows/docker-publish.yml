@@ -36,7 +36,7 @@ jobs:
             expected="$GITHUB_REPOSITORY"
             resulet_file="$(mktemp)"
             docker run --rm -e GITHUB_TOKEN $(docker build -q .) -f "map(select(.full_name == \"$expected\"))" orgs/Kyash > "$resulet_file" ||
-              test $? -gt 1
+              test $? -le 1
             actual="$(< "$resulet_file" grep '^repository\t' | cut -f3 | head -1)"
             test "$actual" = "expected"
           fi
