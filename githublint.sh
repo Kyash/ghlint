@@ -23,6 +23,7 @@ declare REPO_FILTER=${REPO_FILTER:-.}
 declare REPORTER=${REPORTER:-tsv}
 declare EXTENSIONS="${EXTENSIONS:-stats/commit_activity,teams,codeowners,branches}"
 declare RC_FILE=${RC_FILE:-.githublintrc.json}
+declare CURLRC
 
 function usage() {
   {
@@ -79,9 +80,7 @@ function main() {
   org="$(echo "$SLUG" | grep '^orgs/' | sed -e 's/^orgs\///')"
   declare -r ORG="$org"
 
-  local curlrc
-  curlrc="$(mktemp)"
-  declare -r CURLRC="$curlrc"
+  CURLRC="$(mktemp)"
   {
     http::configure_curlrc "$CURL_OPTS" "$(test $DEBUG -ne 0 && echo '-S')"
     github::configure_curlrc
