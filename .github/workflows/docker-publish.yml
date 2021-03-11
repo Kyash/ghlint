@@ -35,9 +35,7 @@ jobs:
 
             if [ "$ACTIONS_STEP_DEBUG" = "true" ]
             then
-              set -x
               XTRACE=1
-              CURL_OPTS="-sSfL"
             fi
 
             expected="$GITHUB_REPOSITORY"
@@ -45,7 +43,7 @@ jobs:
             docker run --rm -e GITHUB_TOKEN -e XTRACE=$XTRACE $(docker build -q .) \
               -df "map(select(.full_name == \"$expected\"))" orgs/Kyash | tee "$resulet_file" ||
               test $? -le 1
-            actual="$(< "$resulet_file" grep '^repository\b' | head -1 |cut -f3)"
+            actual="$(< "$resulet_file" grep '^repository\b' | head -1 | cut -f3)"
             test "$actual" = "$expected"
           fi
         env:
