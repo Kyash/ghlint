@@ -17,8 +17,8 @@
       (.stats.commit_activity | length as $l | if $l == 0 then 0 else map(.total) | add / $l end),
       (.teams | map("@\($org)/\(.slug):\(.permission)")|join(";")),
       (.codeowners | length > 0),
-      (.codeowners | map(.entries|map(.owners)) | flatten | unique | join(" ")),
-      (.branches | map(select(.protected)) | map(.name) | join(" "))
+      (.codeowners // [] | map(.entries | map(.owners)) | flatten | unique | join(" ")),
+      (.branches // [] | map(select(.protected)) | map(.name) | join(" "))
     ]
   elif .resources.organizations
   then
@@ -69,7 +69,7 @@
   .results as $results |
   $rules.rules | map(
     .signature as $signature |
-    $results | map(select(.signature == $signature)) | length == 0
+    ($results // []) | map(select(.signature == $signature)) | length == 0
   )
 )
 | @tsv
