@@ -16,15 +16,15 @@ function github::find_blob() {
   local ref=$2
   local path=$3
   local sha
-  sha=$(http::request "${GITHUB_API_ORIGIN}/repos/$repo/git/${ref}" | jq -r '.object.sha')
+  sha=$(http::get "${GITHUB_API_ORIGIN}/repos/$repo/git/${ref}" | jq -r '.object.sha')
   test "$sha" != 'null' &&
-    http::request "${GITHUB_API_ORIGIN}/repos/$repo/git/trees/${sha}?recursive=1" |
+    http::get "${GITHUB_API_ORIGIN}/repos/$repo/git/trees/${sha}?recursive=1" |
       jq -c --arg path "$path" '.tree|map(select(.path|test($path)))'
 }
 
 function github::fetch_content() {
   local url=${1:-null}
-  test "${url}" != 'null' && http::request "$url" | jq -r '.content | gsub("\\s"; "") | @base64d'
+  test "${url}" != 'null' && hthttp::get "$url" | jq -r '.content | gsub("\\s"; "") | @base64d'
 }
 
 function github::parse_codeowners() {
@@ -59,7 +59,7 @@ function github::fetch_branches() {
         local protection_url
         protection_url="$(jq -nr --argjson branch "$branch" '$branch.protection_url // empty')"
         if [ -n "$protection_url" ]
-          http::request "$protection_url"
+          http::get "$protection_url"
         then 
           echo 'null'
         fi | jq -c '{ protection: . }'
@@ -79,7 +79,7 @@ function github::fetch_repository() {
   local commit_activity='{}'
   if echo "$EXTENSIONS" | grep -q '\bstats/commit_activity\b'
   then
-    commit_activity=$(http::request "${GITHUB_API_ORIGIN}/repos/$full_name/stats/commit_activity" | jq -c)
+    commit_activity=$(http::get "${GITHUB_API_ORIGIN}/repos/$full_name/stats/commit_activity" | jq -c)
     logging::debug '%s commit_activity JSON size: %d' "$full_name" ${#commit_activity}
   fi
 

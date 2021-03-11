@@ -15,7 +15,7 @@ source "$LIB_DIR/logging.sh"
   source "$sources"
 }
 
-declare -r CURL_OPTS=${CURL_OPTS:--sfL}
+declare -r CURL_OPTS=${CURL_OPTS:--s}
 declare -r GITHUB_API_ORIGIN=${GITHUB_API_ORIGIN:-https://api.github.com}
 declare DEBUG=${DEBUG:-0}
 declare XTRACE=${XTRACE:-0}
@@ -111,7 +111,7 @@ function main() {
     org_dump="$(mktemp)"
     local resource_name
     resource_name="$(if [ -n "$ORG" ]; then echo 'organizations'; else echo 'users'; fi)"
-    http::request "${GITHUB_API_ORIGIN}/$SLUG" | jq -c --arg resource_name "$resource_name" '{resources:{($resource_name):[.]}}' > "$org_dump"
+    http::get "${GITHUB_API_ORIGIN}/$SLUG" | jq -c --arg resource_name "$resource_name" '{resources:{($resource_name):[.]}}' > "$org_dump"
     local results_dump
     results_dump="$(mktemp)"
     {

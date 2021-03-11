@@ -9,6 +9,6 @@ function rules::repo::readme_file_exists() {
 
   local url
   url="$(jq -r '.resources.repositories | first | .url')"
-  http::request -I "${url}/readme" >/dev/null ||
+  http::request -If "${url}/readme" >/dev/null ||
     { rules::new_issue "README file does not exist on default branch." "$url" && return 1; }
 }
