@@ -38,6 +38,7 @@ jobs:
             then
               set -x
               XTRACE=1
+              CURL_OPTS="-sSfL"
             fi
             resulet_file="$(mktemp)"
             docker run --rm -e GITHUB_TOKEN -e XTRACE=$XTRACE $(docker build -q .) \
