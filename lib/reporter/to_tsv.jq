@@ -27,9 +27,10 @@ log(debug; 1) |
       (.codeowners // [] | map(.entries | map(.owners)) | flatten | unique | join(" ")),
       (.branches // [] | map(select(.protected)) | map(.name) | join(" "))
     ]
+    | log(debug; 3)
   elif .resources.organizations
   then
-    log(debug; 2) |
+    log(debug; 4) |
     .resources.organizations|first|
     [
       "organization",
@@ -74,8 +75,9 @@ log(debug; 1) |
     empty
   end
 ) + (
+  log(debug; 5) |
   .results as $results |
-  $rules.rules | map(
+  $rules.rules // [] | map(
     .signature as $signature |
     ($results // []) | map(select(.signature == $signature)) | length == 0
   )
