@@ -22,5 +22,9 @@ function reporter::to_tsv() {
   )
   jq -r --args '$ARGS.positional + (.rules | map(.signature)) | @tsv' "${fields[@]}" < "$rules_dump"
 
-  jq --seq -r --arg org "$org" --argfile rules "$rules_dump" -f "$LIB_DIR/${FUNCNAME//:://}.jq"
+  jq --seq -r \
+    -L"$JQ_LIB_DIR" \
+    --arg org "$org" \
+    --argfile rules "$rules_dump" \
+    -f "$LIB_DIR/${FUNCNAME//:://}.jq"
 }
