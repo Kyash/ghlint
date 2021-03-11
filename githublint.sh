@@ -153,7 +153,7 @@ function main() {
               do
                 logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
                 eval "$func" analyze "$full_name" < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
-              done | jq -sc '{results:.}' > "$results_dump"
+              done | jq -sc '{results:.}' | tee "$results_dump" | if [ $XTRACE -ne 0 ]; then jq -c >&2; fi
             }
 
             json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
