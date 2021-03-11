@@ -24,10 +24,11 @@ declare REPORTER=${REPORTER:-tsv}
 declare EXTENSIONS="${EXTENSIONS:-stats/commit_activity,teams,codeowners,branches}"
 declare RC_FILE=${RC_FILE:-.githublintrc.json}
 declare CURLRC
+declare PARALLELISM=${PARALLELISM:-100}
 
 function usage() {
   {
-    echo "Usage: $0 [-d] [-x] [-h] [-c run-control] [-f filter] [-r reporter] [-e extension[,extension]...] slug"
+    echo "Usage: $0 [-d] [-x] [-h] [-p parallelism] [-c run-control] [-f filter] [-r reporter] [-e extension[,extension]...] slug"
     echo ""
     echo "Available rules:"
     rules::list | sed -e 's/^/ - /'
@@ -44,13 +45,14 @@ function finally () {
 }
 
 function main() {
-  while getopts "c:de:f:hr:x" opt
+  while getopts "c:de:f:hp:r:x" opt
   do
     case "$opt" in
       c) RC_FILE="$OPTARG" ;;
       d) DEBUG=1 ;;
       e) EXTENSIONS="$OPTARG" ;;
       f) REPO_FILTER="$OPTARG" ;;
+      p) PARALLELISM="$OPTARG" ;;
       r) REPORTER="$OPTARG" ;;
       x) XTRACE=1 ;;
       h) usage ; exit 0 ;;
@@ -134,6 +136,13 @@ function main() {
         while IFS= read -r repo
         do
           local progress_rate=$(( ++count * 100 / num_of_repos ))
+          logging::debug 'Running %d jobs ...' "$(jobs | wc -l)"
+          while [ "$(jobs | wc -l)" -gt "$PARALLELISM" ]
+          do
+            logging::debug 'Wait (running %d jobs).' "$(jobs | wc -l)"
+            sleep .5
+            logging::debug 'Resume (running %d jobs).' "$(jobs | wc -l)"
+          done
           {
             local full_name
             full_name="$(echo "$repo" | jq -r '.full_name')"
