@@ -66,6 +66,7 @@ function main() {
   if [ $XTRACE -ne 0 ]
   then
     set -xE
+    trap inspect ERR
     declare -p
     bash --version
     node --version
@@ -175,7 +176,6 @@ function inspect() {
   logging::trace '%s function caught an error (status: %d).' "${FUNCNAME[1]}" "$?"
   declare -p FUNCNAME | logging::trace
 }
-trap inspect ERR
 
 function finally () {
   logging::debug 'command exited with status %d' $?
