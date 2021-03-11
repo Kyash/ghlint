@@ -22,7 +22,7 @@ log(debug; 1) |
       .disabled,
       .created_at,
       (.stats.commit_activity | length as $l | if $l == 0 then 0 else map(.total) | add / $l end),
-      (.teams | map("@\($org)/\(.slug):\(.permission)")|join(";")),
+      (.teams // [] | map("@\($org)/\(.slug):\(.permission)") | join(";")),
       (.codeowners | length > 0),
       (.codeowners // [] | map(.entries | map(.owners)) | flatten | unique | join(" ")),
       (.branches // [] | map(select(.protected)) | map(.name) | join(" "))
