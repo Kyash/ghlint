@@ -1,5 +1,9 @@
 import ".githublintrc" as $rc;
 
+def log(l; f):
+  . as $o | (f | l) | $o
+;
+
 def new_issue($descriptor):
   $descriptor + . | { signature, severity, confidence, message, location }
 ;
