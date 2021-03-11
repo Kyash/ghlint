@@ -1,6 +1,13 @@
+def log(l; f):
+  . as $o | (f | l) | $o
+;
+
+log(debug; 1) |
+
 (
   if .resources.repositories
   then
+    log(debug; 2) |
     .resources.repositories|first|
     [
       "repository",
@@ -22,6 +29,7 @@
     ]
   elif .resources.organizations
   then
+    log(debug; 2) |
     .resources.organizations|first|
     [
       "organization",
