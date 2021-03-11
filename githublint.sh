@@ -41,12 +41,6 @@ function usage() {
   } >&2
 }
 
-function finally () {
-  logging::debug 'command exited with status %d' $?
-  declare -p FUNCNAME | logging::debug
-  rm -f "$CURLRC"
-}
-
 function main() {
   while getopts "c:de:f:hp:r:x" opt
   do
@@ -71,7 +65,7 @@ function main() {
 
   if [ $XTRACE -ne 0 ]
   then
-    set -x
+    set -xE
     declare -p
     bash --version
     node --version
@@ -91,8 +85,6 @@ function main() {
     http::configure_curlrc "$CURL_OPTS" "$(test $DEBUG -ne 0 && echo '-S')"
     github::configure_curlrc
   } > "$CURLRC"
-
-  trap finally EXIT
 
   cd "$(mktemp -d)"
 
@@ -178,5 +170,18 @@ function main() {
     eval "reporter::to_$REPORTER" "$rules_dump"
   }
 }
+
+function inspect() {
+  logging::trace '%s function caught an error (status: %d).' "${FUNCNAME[1]}" "$?"
+  declare -p FUNCNAME | logging::trace
+}
+trap inspect ERR
+
+function finally () {
+  logging::debug 'command exited with status %d' $?
+  declare -p FUNCNAME | logging::debug
+  rm -f "$CURLRC"
+}
+trap finally EXIT
 
 main "$@"
