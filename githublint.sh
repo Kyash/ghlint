@@ -39,6 +39,7 @@ function usage() {
 
 function finally () {
   logging::debug 'command exited with status %d' $?
+  declare -p FUNCNAME | logging::debug
   rm -f "$CURLRC"
 }
 
