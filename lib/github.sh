@@ -1,3 +1,5 @@
+#!/bin/false
+
 source "$LIB_DIR/http.sh"
 source "$LIB_DIR/logging.sh"
 
@@ -69,8 +71,8 @@ function github::fetch_branches() {
 
 function github::fetch_repository() {
   local repo="$1"
-  local values
-  values=($(echo "$repo" | jq -r '[.full_name,.default_branch]|@tsv'))
+  local values=()
+  while IFS='' read -r line; do values+=("$line"); done < <(echo "$repo" | jq -r '.full_name,.default_branch')
   local full_name=${values[0]}
   local default_branch=${values[1]}
 
