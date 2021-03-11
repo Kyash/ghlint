@@ -1,6 +1,9 @@
 #!/bin/bash -ue
 
-declare -r LIB_DIR="$PWD/lib"
+declare SCRIPT_DIR
+SCRIPT_DIR="$(cd $(dirname $0) && pwd)"
+declare -r SCRIPT_DIR
+declare -r LIB_DIR="$SCRIPT_DIR/lib"
 declare -r JQ_LIB_DIR="$LIB_DIR"
 source "$LIB_DIR/github.sh"
 source "$LIB_DIR/http.sh"
