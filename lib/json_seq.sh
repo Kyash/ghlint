@@ -6,7 +6,7 @@ function json_seq::new() {
     if [ $XTRACE -ne 0 ]
     then
       echo "$@" | xargs -L 1 jq -c '.'
-      filter='def log(logger; f): . as $o | (f | logger) | $o; log(debug; {length:(length),types:(map(type))}) | add'
+      filter='def log(logger;f):. as $o|(f|logger)|$o;log(debug;{length:(length),types:(map(type)),test:(.[0]+.[1]+.[2])})|'$filter
     fi >&2
     jq -sc "$filter" "$@"
   else
