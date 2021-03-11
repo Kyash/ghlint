@@ -50,13 +50,17 @@ function github::fetch_branches() {
     jq -c '.[]' |
     while IFS= read -r branch
     do
-      values=($(jq -nr --argjson branch "$branch" '[$branch.name, $branch.protected, $branch.protection_url] | @tsv'))
-      branch_name="${values[0]}"
-      protected="${values[1]}"
-      protection_url="${values[2]}"
+      local protected
+      protected="$(jq -nr --argjson branch "$branch" '$branch.protected // empty')"
       if [ "$protected" = "true" ]
       then
-        http::request "$protection_url" | jq -c '{ protection: . }'
+        local protection_url
+        protection_url="$(jq -nr --argjson branch "$branch" '$branch.protection_url // empty')"
+        if [ -n "$protection_url" ]
+          http::request "$protection_url"
+        then 
+          echo 'null'
+        fi | jq -c '{ protection: . }'
       else
         echo '{}'
       fi | jq -c --argjson branch "$branch" '$branch * .'
