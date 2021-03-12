@@ -4,6 +4,7 @@ declare SCRIPT_DIR
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 declare -r SCRIPT_DIR
 declare -r LIB_DIR="$SCRIPT_DIR/lib"
+# shellcheck disable=SC2034
 declare -r JQ_LIB_DIR="$LIB_DIR"
 # shellcheck source=./lib/github.sh
 source "$LIB_DIR/github.sh"

@@ -10,6 +10,7 @@ function http::configure_curlrc() {
   echo "$@"
 }
 
+# shellcheck disable=SC2120
 function http::parse_header() {
   node "$LIB_DIR/parse_header.js" "$@"
 }
@@ -64,7 +65,7 @@ function http::get() {
     then
       logging::warn 'Wait %d seconds because the rate limit has been exceeded.' "$sleep_time"
       sleep $(("$sleep_time" + 10))
-      eval "$FUNCNAME" "$@"
+      "${FUNCNAME[0]}" "$@"
     fi
 
     return $exit_status

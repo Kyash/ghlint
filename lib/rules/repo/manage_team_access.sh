@@ -11,6 +11,6 @@ function rules::repo::manage_team_access() {
   }
 
   ! jq -ec -L"$JQ_LIB_DIR" \
-    --argfile descriptor <(eval "$FUNCNAME" describe) \
+    --argfile descriptor <(eval "${FUNCNAME[0]}" describe) \
     -f "$LIB_DIR/${FUNCNAME//:://}.jq"
 }
