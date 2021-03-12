@@ -26,7 +26,7 @@ declare REPO_FILTER=${REPO_FILTER:-.}
 declare REPORTER=${REPORTER:-tsv}
 declare EXTENSIONS="${EXTENSIONS:-stats/commit_activity,teams,codeowners,branches}"
 declare RC_FILE=${RC_FILE:-.githublintrc.json}
-declare CURLRC
+declare CURLRC=
 declare PARALLELISM=${PARALLELISM:-100}
 
 function usage() {
@@ -180,6 +180,10 @@ function inspect() {
 function finally () {
   logging::debug 'command exited with status %d' $?
   declare -p FUNCNAME | logging::debug
+  logging::debug "running jobs: $(jobs -p)"
+  jobs -p | while read -r pid; do kill "$pid"; done
+  logging::debug "running jobs: $(jobs -p)"
+  while [ "$(jobs -p | wc -l)" -gt 0 ]; do :; done
   rm -f "$CURLRC"
 }
 trap finally EXIT
