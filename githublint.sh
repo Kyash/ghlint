@@ -26,7 +26,7 @@ declare REPO_FILTER=${REPO_FILTER:-.}
 declare REPORTER=${REPORTER:-tsv}
 declare EXTENSIONS="${EXTENSIONS:-stats/commit_activity,teams,codeowners,branches}"
 declare RC_FILE=${RC_FILE:-.githublintrc.json}
-declare CURLRC
+declare CURLRC=
 declare PARALLELISM=${PARALLELISM:-100}
 
 function usage() {
@@ -67,12 +67,20 @@ function main() {
   then
     set -xE
     trap inspect ERR
-    declare -p
-    bash --version
-    node --version
-    curl --version
-    jq --version
-  fi >&2
+    {
+      declare -p
+      bash --version
+      node --version
+      curl --version
+      jq --version
+    } | (
+      set +x
+      while IFS= read -r line
+      do
+        logging::trace '%s' "$line"
+      done
+    )
+  fi
 
   test $# -eq 1 || { usage ; exit 1; }
 
@@ -174,12 +182,12 @@ function main() {
 
 function inspect() {
   logging::trace '%s function caught an error (status: %d).' "${FUNCNAME[1]}" "$?"
-  declare -p FUNCNAME | logging::trace
+  logging::trace '%s' "$(declare -p FUNCNAME)"
 }
 
 function finally () {
   logging::debug 'command exited with status %d' $?
-  declare -p FUNCNAME | logging::debug
+  logging::debug '%s' "$(declare -p FUNCNAME)"
   rm -f "$CURLRC"
 }
 trap finally EXIT
