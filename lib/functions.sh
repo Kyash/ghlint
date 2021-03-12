@@ -1,5 +1,5 @@
 function function::exists() {
-  declare -F $1 > /dev/null
+  test "${1:0:1}" != "-" && declare -F "$1" > /dev/null
 }
 
 function array::first() {
