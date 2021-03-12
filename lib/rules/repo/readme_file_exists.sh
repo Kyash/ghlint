@@ -1,9 +1,9 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=../../../lib/rules/functions.sh
+# shellcheck source=./lib/rules/functions.sh
 source "$LIB_DIR/rules/functions.sh"
-# shellcheck source=../../../lib/http.sh
+# shellcheck source=./lib/http.sh
 source "$LIB_DIR/http.sh"
 
 function rules::repo::readme_file_exists() {
