@@ -24,7 +24,7 @@ function github::find_blob() {
 
 function github::fetch_content() {
   local url=${1:-null}
-  test "${url}" != 'null' && hthttp::get "$url" | jq -r '.content | gsub("\\s"; "") | @base64d'
+  test "${url}" != 'null' && http::get "$url" | jq -r '.content | gsub("\\s"; "") | @base64d'
 }
 
 function github::parse_codeowners() {
