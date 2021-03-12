@@ -22,8 +22,45 @@ function http::get() {
     return
   else
     local exit_status=$?
-    http::head "$@" | jq -rc '.[]' | while read line; do logging::trace '%s' "$line"; done
-    http::request "$@" -X GET -L | jq -c | logging::trace
+
+    local header_dump
+    header_dump="$(mktemp)"
+    http::request "$@" -I > "$header_dump"
+
+    if [ ${XTRACE:-0} -ne 0 ]
+    then
+      < "$header_dump" http::parse_header | jq -c '.[]' |
+        while read -r json
+        do
+          logging::trace '%s' "$json"
+        done
+        http::request "$@" -X GET -L | jq -c | logging::trace
+    fi
+
+    grep -q '^HTTP/[0-9.]\+ \(5\d\d\|404\)' < "$header_dump" && return $exit_status
+
+    local filter='
+      def toi:
+        "0" + . | tonumber
+      ;
+
+      map(select(type == "object"))| add |
+      if (."x-ratelimit-remaining" | toi) == 0 then
+        (."x-ratelimit-reset" | toi) - now | floor
+      else
+        -1
+      end
+    '
+    local sleep_time
+    sleep_time="$(< "$header_dump" http::parse_header | jq -r "$filter")"
+    logging::trace 'sleep time %d' "$sleep_time"
+    if [ "${sleep_time:-1}" -gt 0 ]
+    then
+      logging::warn 'Wait %d seconds because the rate limit has been exceeded.' "$sleep_time"
+      sleep $(("$sleep_time" + 10))
+      eval "$FUNCNAME" "$@"
+    fi
+
     return $exit_status
   fi
 }
