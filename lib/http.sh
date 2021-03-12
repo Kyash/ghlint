@@ -1,9 +1,9 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=../lib/functions.sh
+# shellcheck source=./lib/functions.sh
 source "${LIB_DIR}/functions.sh"
-# shellcheck source=../lib/logging.sh
+# shellcheck source=./lib/logging.sh
 source "${LIB_DIR}/logging.sh"
 
 function http::configure_curlrc() {

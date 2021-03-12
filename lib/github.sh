@@ -1,9 +1,9 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=../lib/http.sh
+# shellcheck source=./lib/http.sh
 source "$LIB_DIR/http.sh"
-# shellcheck source=../lib/logging.sh
+# shellcheck source=./lib/logging.sh
 source "$LIB_DIR/logging.sh"
 
 function github::configure_curlrc() {
