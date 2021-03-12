@@ -1,0 +1,5 @@
+---
+runner:
+  shellcheck:
+    cmd: find . -name '*.sh' -print0 | xargs -0 shellcheck -f checkstyle
+    format: checkstyle
