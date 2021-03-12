@@ -1,3 +1,6 @@
+#!/bin/false
+# shellcheck shell=bash
+
 function reporter::to_json() {
   jq --seq -sc '
     def merge($rhs):

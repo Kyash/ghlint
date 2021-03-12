@@ -1,3 +1,6 @@
+#!/bin/false
+# shellcheck shell=bash
+
 function logging::log() {
   (
     set +x

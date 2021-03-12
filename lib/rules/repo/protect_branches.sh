@@ -1,3 +1,7 @@
+#!/bin/false
+# shellcheck shell=bash
+
+# shellcheck source=../../../lib/rules/functions.sh
 source "$LIB_DIR/rules/functions.sh"
 
 function rules::repo::protect_branches() {

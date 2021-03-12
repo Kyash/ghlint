@@ -1,3 +1,6 @@
+#!/bin/false
+# shellcheck shell=bash
+
 function json_seq::new() {
   printf '\x1e'
   if [ $# -ne 0 ]

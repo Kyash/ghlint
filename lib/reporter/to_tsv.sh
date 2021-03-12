@@ -1,3 +1,6 @@
+#!/bin/false
+# shellcheck shell=bash
+
 function reporter::to_tsv() {
   local org="$ORG"
   local rules_dump="$1"

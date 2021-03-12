@@ -1,13 +1,17 @@
 #!/bin/bash -ue
 
 declare SCRIPT_DIR
-SCRIPT_DIR="$(cd $(dirname $0) && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 declare -r SCRIPT_DIR
 declare -r LIB_DIR="$SCRIPT_DIR/lib"
 declare -r JQ_LIB_DIR="$LIB_DIR"
+# shellcheck source=./lib/github.sh
 source "$LIB_DIR/github.sh"
+# shellcheck source=./lib/http.sh
 source "$LIB_DIR/http.sh"
+# shellcheck source=./lib/json_seq.sh
 source "$LIB_DIR/json_seq.sh"
+# shellcheck source=./lib/logging.sh
 source "$LIB_DIR/logging.sh"
 {
   sources="$(mktemp)"
@@ -15,6 +19,7 @@ source "$LIB_DIR/logging.sh"
   do
     echo source "$file" "$LIB_DIR"
   done > "$sources"
+  # shellcheck source=/dev/null
   source "$sources"
 }
 

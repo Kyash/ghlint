@@ -1,3 +1,6 @@
+#!/bin/false
+# shellcheck shell=bash
+
 function rules::list() {
   declare -F | grep '^declare\s\+-fx\?\s\+rules::\(repo\|org\)::' | cut -d' ' -f3
 }
