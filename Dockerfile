@@ -6,6 +6,11 @@ RUN \
   curl -sSfLo /usr/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && chmod +x /usr/bin/jq
 
 FROM stage0 as stage1
-COPY githublint.sh /root/
-COPY lib/ /root/lib/
+USER curl_user
+RUN mkdir /home/curl_user/githublint
+WORKDIR /home/curl_user/githublint
+COPY githublint.sh .
+COPY lib/ ./lib/
+
+FROM stage1 as stage2
 ENTRYPOINT [ "./githublint.sh" ]
