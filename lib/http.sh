@@ -15,37 +15,47 @@ function http::parse_header() {
   node "$LIB_DIR/parse_header.js" "$@"
 }
 
+function http::_request() {
+  curl -q -K "$CURLRC" "$@"
+}
+
 function http::request() {
-  curl -K "$CURLRC" "$@"
-}
-
-function http::head() {
-  http::request "$@" -I | http::parse_header
-}
-
-function http::get() {
-  if http::request "$@" -X GET -Lf
-  then
-    return
-  else
-    local exit_status=$?
-
-    local header_dump
-    header_dump="$(mktemp)"
-    http::request "$@" -I > "$header_dump"
-
-    if [ ${XTRACE:-0} -ne 0 ]
+  local callback="function:passthrough"
+  local argc="$#"
+  local args=()
+  {
+    local last_arg
+    last_arg="$(array::last "$@")"
+    if function::exists "$last_arg"
     then
-      < "$header_dump" http::parse_header | jq -c '.[]' |
-        while read -r json
-        do
-          logging::trace '%s' "$json"
-        done
-        http::request "$@" -X GET -L | jq -c | logging::trace
+      callback="$last_arg"
+      let argc-=1
     fi
+  }
+  args+=("${@:1:(argc)}")
 
-    grep -q '^HTTP/[0-9.]\+ \(5\d\d\|404\)' < "$header_dump" && return $exit_status
+  local response_dump
+  response_dump="$(mktemp)"
+  local header_dump
+  header_dump="$(mktemp)"
+  local stat_dump
+  stat_dump="$(mktemp)"
+  {
+    set -o pipefail
+    http::_request \
+      -D "$header_dump" \
+      -w '%{stderr}{"exitcode":%{exitcode},"errormsg":"%{errormsg}","stat":%{json}}\n' \
+      "${args[@]}" 2>&1 1>&3 3>&- | {
+        local pattern='/^\{"exitcode":\d+,"errormsg":"/'
+        awk '! '"$pattern"' { print > "/dev/stderr" } '"$pattern"' { print }' > "$stat_dump"
+      }
+  } 3>&1 1>&2 | tee "$response_dump"
+  local exit_status="${PIPESTATUS[0]}"
 
+  # shellcheck disable=SC2016
+  local filter='map(select((.exitcode | tostring == $exit_status) and (.stat.http_code | tostring | test("^(5\\d{2}|404)$") | not))) | length > 0'
+  if [ "$exit_status" -ne 0 ] && jq -se --arg exit_status "$exit_status" "$filter" "$stat_dump" >/dev/null
+  then
     local filter='
       def toi:
         "0" + . | tonumber
@@ -63,27 +73,40 @@ function http::get() {
     logging::trace 'sleep time %d' "$sleep_time"
     if [ "${sleep_time:-1}" -gt 0 ]
     then
-      logging::warn 'Wait %d seconds because the rate limit has been exceeded.' "$sleep_time"
+      local now
+      now="$(date +%s)"
+      local rest_time=$((now + sleep_time))
+      logging::warn \
+        'Wait %d seconds because the rate limit has been exceeded. Expected to resume in %s' \
+        "$sleep_time" "$(date --date "@$rest_time")"
       sleep $(("$sleep_time" + 10))
       "${FUNCNAME[0]}" "$@"
     fi
-
-    return $exit_status
   fi
+
+  "$callback" "$exit_status" "$response_dump" "$header_dump" "$stat_dump"
+  return
+}
+
+function http::head() {
+  http::request "$@" -I
+}
+
+function http::get() {
+  http::request "$@" -X GET
 }
 
 function http::list() {
   local url="$1"
   shift
+  local filter='
+    map(select(.link?)) |
+    map(.link | map(select(.rel == "last")) | map(.href.searchParams.page)) |
+    flatten | first // empty
+  '
   local num_of_pages
-  num_of_pages=$(
-    http::head "${url}" "$@" |
-      jq -r '
-      map(select(.link?)) |
-      map(.link | map(select(.rel == "last")) | map(.href.searchParams.page)) |
-      flatten | first // empty
-      '
-  )
+  num_of_pages=$(http::head "${url}" "$@" | http::parse_header | jq -r "$filter")
+  local params
   params="$(if [ -n "${num_of_pages}" ]; then printf 'page=[1-%d]' "${num_of_pages}"; fi)"
   http::get "${url}?${params}" "$@"
 }
