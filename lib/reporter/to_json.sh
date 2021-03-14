@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 
 function reporter::to_json() {
-  jq --seq -sc '
+  jq -sc '
     def merge($rhs):
       .resources.users |= . + $rhs.resources.users |
       .resources.organizations |= . + $rhs.resources.organizations |

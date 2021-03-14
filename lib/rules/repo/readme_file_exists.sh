@@ -12,8 +12,9 @@ function rules::repo::readme_file_exists() {
     return
   }
 
-  local url
-  url="$(jq -r '.resources.repositories | first | .url')"
-  http::request -If "${url}/readme" >/dev/null ||
-    { rules::new_issue "README file does not exist on default branch." "$url" && return 1; }
+  jq -r '.resources.repositories | first | .url' | {
+    IFS= read -r url
+    github::fetch -I "${url}/readme" >/dev/null ||
+      { rules::new_issue "README file does not exist on default branch." "$url" && return 1; }
+  }
 }

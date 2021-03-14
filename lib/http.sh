@@ -11,8 +11,8 @@ function http::configure_curlrc() {
 }
 
 # shellcheck disable=SC2120
-function http::parse_header() {
-  node "$LIB_DIR/parse_header.js" "$@"
+function http::parse_url() {
+  node "$LIB_DIR/parse_url.js" "$@"
 }
 
 function http::_request() {
@@ -52,26 +52,60 @@ function http::request() {
   } 3>&1 1>&2 | tee "$response_dump"
   local exit_status="${PIPESTATUS[0]}"
 
-  # shellcheck disable=SC2016
-  local filter='map(select((.exitcode | tostring == $exit_status) and (.stat.http_code | tostring | test("^(5\\d{2}|404)$") | not))) | length > 0'
-  if [ "$exit_status" -ne 0 ] && jq -se --arg exit_status "$exit_status" "$filter" "$stat_dump" >/dev/null
+  if [ "$XTRACE" -ne 0 ]
   then
-    local filter='
-      def toi:
-        "0" + . | tonumber
-      ;
+    declare -p exit_status response_dump header_dump stat_dump args callback | while IFS= read -r line
+    do
+      logging::trace '%s' "$line"
+    done
+  fi
 
-      map(select(type == "object"))| add |
-      if (."x-ratelimit-remaining" | toi) == 0 then
-        (."x-ratelimit-reset" | toi) - now | floor
-      else
-        -1
-      end
-    '
-    local sleep_time
-    sleep_time="$(< "$header_dump" http::parse_header | jq -r "$filter")"
-    logging::trace 'sleep time %d' "$sleep_time"
-    if [ "${sleep_time:-1}" -gt 0 ]
+  local functions=(
+    http::store_cache
+    "$callback"
+  )
+  for func in "${functions[@]}"
+  do
+    "$func" "$exit_status" "$response_dump" "$header_dump" "$stat_dump" "$@"
+  done
+  return
+}
+
+function http::sleep_when_rate_limit_is_exceeded() {
+  local exit_status="$1"
+  local response_dump="$2"
+  local header_dump="$3"
+  local stat_dump="$4"
+  local args=("${@:5}")
+  jq -escr 'map([.stat.http_code, .stat.size_download, .stat.size_header, .stat.url_effective] | @tsv) | .[]' < "$stat_dump" | {
+    local total_size_header=0
+    local total_size_body=0
+    while IFS=$'\t' read -r http_code size_body size_header url_effective
+    do
+      if [ "${http_code:0:1}" = "4" ]
+      then
+        { tail -c "+$total_size_header" | head -c "$size_header"; } < "$header_dump" | {
+          jq -L"$JQ_LIB_DIR" -Rscr \
+            '
+              import "http" as http;
+
+              http::parse_headers | .[1] |
+              select(."x-ratelimit-remaining" and ."x-ratelimit-reset") |
+              if (."x-ratelimit-remaining" | tonumber) == 0 then
+                (."x-ratelimit-reset" | tonumber) - now | floor
+              else
+                empty
+              end
+            '
+        }
+      fi
+      total_size_header=$(( total_size_header + size_header ))
+      total_size_body=$(( total_size_body + size_body ))
+    done
+  } | jq -scr 'max // empty' | {
+    IFS= read -r sleep_time
+    logging::trace 'sleep time %d' "${sleep_time:-0}"
+    if [ "${sleep_time:-0}" -gt 0 ]
     then
       local now
       now="$(date +%s)"
@@ -79,34 +113,83 @@ function http::request() {
       logging::warn \
         'Wait %d seconds because the rate limit has been exceeded. Expected to resume in %s' \
         "$sleep_time" "$(date --date "@$rest_time")"
-      sleep $(("$sleep_time" + 10))
-      "${FUNCNAME[0]}" "$@"
+      sleep $(("$sleep_time" + 5))
+      return 20
     fi
-  fi
-
-  "$callback" "$exit_status" "$response_dump" "$header_dump" "$stat_dump"
-  return
+  }
+  return "$exit_status"
 }
 
-function http::head() {
-  http::request "$@" -I
-}
+function http::store_cache() {
+  local exit_status="$1"
+  local response_dump="$2"
+  local header_dump="$3"
+  local stat_dump="$4"
+  local args=("${@:5}")
+  test "$exit_status" -eq 0 || return
+  jq -escr 'map([.exitcode, .stat.http_code, .stat.method, .stat.size_download, .stat.size_header, .stat.url_effective] | @tsv) | .[]' "$stat_dump" | {
+    local total_size_header=0
+    local total_size_body=0
+    while IFS=$'\t' read -r exitcode http_code method size_body size_header url_effective
+    do
+      logging::trace '%d,%d,%s,%d,%d,%s' "$exitcode" "$http_code" "$method" "$size_body" "$size_header" "$url_effective"
+      if [ "$exitcode" -eq 0 ] && [ "${method}" != "HEAD" ] && [ "${http_code:0:1}" = '2' ] && [ "${http_code}" != '204' ]
+      then
+        { tail -c "+$total_size_header" | head -c "$size_header"; } < "$header_dump" | {
+          jq -L"$JQ_LIB_DIR" -Rscr \
+            --arg url_effective "$url_effective" \
+            '
+              import "http" as http;
 
-function http::get() {
-  http::request "$@" -X GET
-}
+              http::parse_headers | .[1] |
+              select(."cache-control" // "" | test("\\bno-store\\b") | not) |
+              ([
+                $url_effective,
+                ."last-modified",
+                .etag,
+                ."cache-control",
+                .pragma,
+                .vary
+              ] | @tsv),
+              .date // "",
+              .expires // ""
+            '
+        } | {
+          IFS= read -r entry
+          if [ -n "$entry" ]
+          then
+            IFS= read -r date
+            IFS= read -r expires
+            local cache_filename
+            cache_filename="$(echo "$entry" | md5sum | cut -d' ' -f1)"
+            local cache_file="$CACHE_DIR/$cache_filename"
+            if [ ! -e "$cache_file" ]
+            then
+              touch "$cache_file"
+              printf '%s\t%s\t%s\t%s\n' "$entry" "$expires" "$date" "$cache_file" >> "$CACHE_INDEX_FILE"
+              { tail -c "+$total_size_body"| head -c "$size_body"; } < "$response_dump" > "$cache_file"
+            fi
+          fi
+        }
+      fi
+      total_size_header=$(( total_size_header + size_header ))
+      if [ "${method}" = "HEAD" ]
+      then
+        total_size_body=$(( total_size_body + size_header ))
+      fi
+      total_size_body=$(( total_size_body + size_body ))
+    done
 
-function http::list() {
-  local url="$1"
-  shift
-  local filter='
-    map(select(.link?)) |
-    map(.link | map(select(.rel == "last")) | map(.href.searchParams.page)) |
-    flatten | first // empty
-  '
-  local num_of_pages
-  num_of_pages=$(http::head "${url}" "$@" | http::parse_header | jq -r "$filter")
-  local params
-  params="$(if [ -n "${num_of_pages}" ]; then printf 'page=[1-%d]' "${num_of_pages}"; fi)"
-  http::get "${url}?${params}" "$@"
+    if [ "$XTRACE" -ne 0 ]
+    then
+      local size_response_dump
+      size_response_dump="$(wc -c < "$response_dump")"
+      local size_header_dump
+      size_header_dump="$(wc -c < "$header_dump")"
+      logging::trace \
+        'total size (download): %d = %d' \
+        "$(( total_size_header + total_size_body ))" \
+        "$(( size_response_dump + size_header_dump ))"
+    fi
+  }
 }

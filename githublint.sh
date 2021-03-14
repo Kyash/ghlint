@@ -34,6 +34,9 @@ declare EXTENSIONS="${EXTENSIONS:-stats/commit_activity,teams,codeowners,branche
 declare RC_FILE=${RC_FILE:-.githublintrc.json}
 declare CURLRC=
 declare PARALLELISM=${PARALLELISM:-100}
+declare PROFILE_DIR=
+declare CACHE_DIR=
+declare CACHE_INDEX_FILE=
 
 function usage() {
   {
@@ -48,6 +51,14 @@ function usage() {
 }
 
 function main() {
+  local profile_dir
+  profile_dir="$HOME/.githublint/$(echo "$GITHUB_TOKEN" | md5sum | cut -d' ' -f1)"
+  readonly PROFILE_DIR="$profile_dir"
+  readonly CACHE_DIR="$PROFILE_DIR/cache"
+  readonly CACHE_INDEX_FILE="$CACHE_DIR/index.txt"
+  mkdir -p "$CACHE_DIR"
+  touch "$CACHE_INDEX_FILE"
+
   while getopts "c:de:f:hp:r:x" opt
   do
     case "$opt" in
@@ -64,15 +75,18 @@ function main() {
   done
   shift $((OPTIND - 1))
 
-  test $DEBUG -ne 0 -a -f "$RC_FILE" && {
-    printf 'Run-Control file was found. '
-    jq -jcM '.' "$RC_FILE"
-  } | logging::debug
+  if [ $DEBUG -ne 0 ]
+  then
+    trap inspect ERR
+    test -f "$RC_FILE" && {
+      printf 'Run-Control file was found. '
+      jq -jcM '.' "$RC_FILE"
+    } | logging::debug
+  fi
 
   if [ $XTRACE -ne 0 ]
   then
     set -xE
-    trap inspect ERR
     {
       declare -p
       bash --version
@@ -123,7 +137,7 @@ function main() {
     org_dump="$(mktemp)"
     local resource_name
     resource_name="$(if [ -n "$ORG" ]; then echo 'organizations'; else echo 'users'; fi)"
-    http::get "${GITHUB_API_ORIGIN}/$SLUG" | jq -c --arg resource_name "$resource_name" '{resources:{($resource_name):[.]}}' > "$org_dump"
+    github::fetch "${GITHUB_API_ORIGIN}/$SLUG" | jq -c --arg resource_name "$resource_name" '{resources:{($resource_name):[.]}}' > "$org_dump"
     local results_dump
     results_dump="$(mktemp)"
     {
@@ -139,9 +153,11 @@ function main() {
     num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name]|first|.public_repos + .total_private_repos' "$org_dump")"
     logging::info '%s has %d repositories.' "$SLUG" "$num_of_repos"
     logging::info 'Fetching %s repositories ...' "$SLUG"
-    http::list "${GITHUB_API_ORIGIN}/${SLUG}/repos" -G -d 'per_page=100' |
+    github::list "${GITHUB_API_ORIGIN}/${SLUG}/repos" -G -d 'per_page=100' |
       jq -c "${REPO_FILTER}" |
       jq -c '.[]' | {
+        local lock_file
+        lock_file="$(mktemp)"
         local count=0
         while IFS= read -r repo
         do
@@ -171,24 +187,31 @@ function main() {
               jq -r '.rules|map(.signature)|.[]|select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
               do
                 logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
-                eval "$func" analyze "$full_name" < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
+                "$func" analyze "$full_name" < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
               done | jq -sc '{results:.}' > "$results_dump"
             }
 
-            json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
+            {
+              flock 3
+              json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
+            } 3>> "$lock_file"
           } &
+          if [ "$PARALLELISM" -lt 1 ]
+          then
+            wait
+          fi
         done
         wait
         logging::info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
       }
   } | {
-    eval "reporter::to_$REPORTER" "$rules_dump"
+    "reporter::to_$REPORTER" "$rules_dump"
   }
 }
 
 function inspect() {
-  logging::trace '%s function caught an error (status: %d).' "${FUNCNAME[1]}" "$?"
-  logging::trace '%s' "$(declare -p FUNCNAME)"
+  logging::debug '%s function caught an error (status: %d).' "${FUNCNAME[1]}" "$?"
+  logging::debug '%s' "$(declare -p FUNCNAME)"
 }
 
 function finally () {
