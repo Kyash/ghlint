@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 
 function function::exists() {
-  test "${1:0:1}" != "-" && declare -F "$1" > /dev/null
+  [ "${1:0:1}" != "-" ] && ! [[ "$1" =~ = ]] && declare -F "$1" > /dev/null
 }
 
 function function:passthrough() {
