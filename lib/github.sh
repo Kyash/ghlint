@@ -127,6 +127,7 @@ function github::fetch_repository() {
     local dumps=()
     for extension in ${EXTENSIONS//,/$'\t'}
     do
+      [[ "$extension" = "repository" || "$extension" = "content" ]] && continue
       local funcname="github::fetch_${extension}"
       function::exists "${funcname}" || continue
       local dump_file
