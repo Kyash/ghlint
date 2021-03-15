@@ -22,3 +22,7 @@ function stream::slice() {
   local length="${2:--0}"
   tail -c +"$offset" | head -c "$length"
 }
+
+function crypto::hash() {
+  md5sum | cut -d' ' -f1
+}

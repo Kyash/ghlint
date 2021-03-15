@@ -30,3 +30,29 @@ def parse_link_header:
     (.[1:] | map(split("=") | { key : (.[0]), value: (.[1] | gsub("(^\"|\"$)"; "")) })) | from_entries
   )
 ;
+
+def totime:
+  if . == null or . == "" then
+    .
+  else
+    {
+      string: .,
+      unixtime: (strptime("%a, %d %b %Y %H:%M:%S %Z") | mktime)
+    }
+  end
+;
+
+def parse_cache_index:
+  split("\t") |
+  {
+    url_effective: .[1],
+    "last-modified": (.[2] | totime),
+    etag: .[3],
+    "cache-control": .[4],
+    pragma: .[5],
+    vary: .[6],
+    expires: (.[7] | totime),
+    date: (.[8] | totime),
+    file: .[9]
+  }
+;

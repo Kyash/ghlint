@@ -71,6 +71,41 @@ function http::request() {
   return
 }
 
+function http::find_cache() {
+  local url_effective="$1"
+  local index
+  index="$(echo "$url_effective" | crypto::hash)"
+  grep "^${index}\t" |
+    jq -L"$JQ_LIB_DIR" -R 'import "http" as http; http::parse_cache_index' |
+    jq -esr --arg url "$url_effective" \
+      'map(select(.url_effective == $url)) | reduce .[] as $entry (null; if ($entry.date.unixtime > .date.unixtime) then $entry else . end)'
+}
+
+function http::respond_from_cache() {
+  local exit_status="$1"
+  local response_dump="$2"
+  local header_dump="$3"
+  local stat_dump="$4"
+  local args=("${@:5}")
+  jq -scr 'map([.stat.http_code, .stat.url_effective] | @tsv) | .[]' < "$stat_dump" | {
+    local total_size_header=0
+    local total_size_body=0
+    while IFS=$'\t' read -r http_code url_effective
+    do
+      if [ "$http_code" = "304" ]
+      then
+        http::find_cache "$url_effective" < "$CACHE_INDEX_FILE" | jq -r '.file' | {
+          IFS='' read -r file
+          [ -f "$file" ] || return 24
+          logging::debug 'Respond from the cache instead of %s' "$url_effective"
+          cat "$file"
+        }
+      fi
+    done
+  }
+  return "$exit_status"
+}
+
 function http::sleep_when_rate_limit_is_exceeded() {
   local exit_status="$1"
   local response_dump="$2"
@@ -151,22 +186,29 @@ function http::store_cache() {
                 .pragma,
                 .vary
               ] | @tsv),
+              $url_effective,
               .date // "",
               .expires // ""
             '
         } | {
           IFS= read -r entry && {
+            IFS= read -r url_effective
             IFS= read -r date || :
             IFS= read -r expires || :
             local cache_filename
-            cache_filename="$(echo "$entry" | md5sum | cut -d' ' -f1)"
+            cache_filename="$(echo "$entry" | crypto::hash)"
+            local index
+            index="$(echo "$url_effective" | crypto::hash)"
             local cache_file="$CACHE_DIR/$cache_filename"
-            if [ ! -e "$cache_file" ]
-            then
-              touch "$cache_file"
-              printf '%s\t%s\t%s\t%s\n' "$entry" "$expires" "$date" "$cache_file" >> "$CACHE_INDEX_FILE"
-              { tail -c "+$total_size_body"| head -c "$size_body"; } < "$response_dump" > "$cache_file"
-            fi
+            {
+              flock 3
+              if [ ! -e "$cache_file" ]
+              then
+                touch "$cache_file"
+                stream::slice "$total_size_body" "$size_body" < "$response_dump" > "$cache_file"
+                printf '%s\t%s\t%s\t%s\t%s\n' "$index" "$entry" "$expires" "$date" "$cache_file" >> "$CACHE_INDEX_FILE"
+              fi
+            } 3>>"$CACHE_INDEX_FILE"
           }
         }
       fi

@@ -40,7 +40,18 @@ function github::list() {
 }
 
 function github::fetch() {
-  http::request "$@" -g -f --fail-early github::_retry_when_rate_limit_is_exceeded
+  local url="$1"
+  shift
+  local filter='."last-modified" | if type == "object" then ["-H", "If-Modified-Since: \(.string)"] | @tsv else empty end'
+  { http::find_cache "$url" < "$CACHE_INDEX_FILE" || echo 'null'; } | jq -r "$filter" | {
+    IFS=$'\t' read -ra options || :
+    http::request "$url" "$@" "${options[@]}" -g -f --fail-early github:_callback_fetch
+  }
+}
+
+function github:_callback_fetch() {
+  http::respond_from_cache "$@"
+  github::_retry_when_rate_limit_is_exceeded "$@"
 }
 
 function github::_retry_when_rate_limit_is_exceeded() {
