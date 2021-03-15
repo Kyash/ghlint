@@ -30,12 +30,13 @@ function github::list() {
       $url
     end
   '
-  http::request -I "${url}" "$@" | jq -L"$JQ_LIB_DIR" -Rscr --arg url "$url" "$filter" |
+  http::request -I "${url}" "$@" | 
+    jq -L"$JQ_LIB_DIR" -Rscr --arg url "$url" "$filter" |
     http::parse_url | jq -r '.searchParams.page // ""' | {
-    IFS= read -r num_of_pages
-    logging::debug '%s' "$(declare -p num_of_pages)"
-    http::request "${url}?page=[1-${num_of_pages:-1}]" "$@" -f --fail-early github::_retry_when_rate_limit_is_exceeded
-  }
+      IFS= read -r num_of_pages
+      logging::debug '%s' "$(declare -p num_of_pages)"
+      http::request "${url}?page=[1-${num_of_pages:-1}]" "$@" -f --fail-early github::_retry_when_rate_limit_is_exceeded
+    }
 }
 
 function github::fetch() {
@@ -87,25 +88,24 @@ function github::fetch_codeowners() {
 
 function github::fetch_branches() {
   local full_name="$1"
-  github::list "${GITHUB_API_ORIGIN}/repos/$full_name/branches" |
-    jq -c '.[]' |
-    while IFS= read -r branch
-    do
-      jq -nr --argjson branch "$branch" '$branch | [.protected, .protection_url] | map(. // "") | .[]' | {
-        IFS= read -r protected
-        IFS= read -r protection_url
-        if [ "$protected" = "true" ]
+  github::list "${GITHUB_API_ORIGIN}/repos/$full_name/branches" | jq -c '.[]' | while IFS= read -r branch
+  do
+    jq -nr --argjson branch "$branch" '$branch | [.protected, .protection_url] | map(. // "") | .[]' | {
+      IFS= read -r protected
+      IFS= read -r protection_url
+      if [ "$protected" = "true" ]
+      then
+        if [ -n "$protection_url" ]
         then
-          if [ -n "$protection_url" ]
-            github::fetch "$protection_url"
-          then
-            echo 'null'
-          fi | jq -c '{ protection: . }'
+          github::fetch "$protection_url"
         else
-          echo '{}'
-        fi | jq -c --argjson branch "$branch" '$branch * .'
-      }
-    done | jq -sc
+          echo 'null'
+        fi | jq -c '{ protection: . }'
+      else
+        echo '{}'
+      fi | jq -c --argjson branch "$branch" '$branch + .'
+    }
+  done | jq -sc
 }
 
 function github::fetch_repository() {
