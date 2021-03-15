@@ -52,7 +52,7 @@ function http::request() {
   } 3>&1 1>&2 | tee "$response_dump"
   local exit_status="${PIPESTATUS[0]}"
 
-  if [ "$XTRACE" -ne 0 ]
+  if [ "${XTRACE:-0}" -ne 0 ]
   then
     declare -p exit_status response_dump header_dump stat_dump args callback | while IFS= read -r line
     do
@@ -77,14 +77,14 @@ function http::sleep_when_rate_limit_is_exceeded() {
   local header_dump="$3"
   local stat_dump="$4"
   local args=("${@:5}")
-  jq -escr 'map([.stat.http_code, .stat.size_download, .stat.size_header, .stat.url_effective] | @tsv) | .[]' < "$stat_dump" | {
+  jq -scr 'map([.stat.http_code, .stat.size_download, .stat.size_header, .stat.url_effective] | @tsv) | .[]' < "$stat_dump" | {
     local total_size_header=0
     local total_size_body=0
     while IFS=$'\t' read -r http_code size_body size_header url_effective
     do
       if [ "${http_code:0:1}" = "4" ]
       then
-        { tail -c "+$total_size_header" | head -c "$size_header"; } < "$header_dump" | {
+        stream::slice "$total_size_header" "$size_header" < "$header_dump" | {
           jq -L"$JQ_LIB_DIR" -Rscr \
             '
               import "http" as http;
@@ -103,7 +103,7 @@ function http::sleep_when_rate_limit_is_exceeded() {
       total_size_body=$(( total_size_body + size_body ))
     done
   } | jq -scr 'max // empty' | {
-    IFS= read -r sleep_time
+    IFS= read -r sleep_time || :
     logging::trace 'sleep time %d' "${sleep_time:-0}"
     if [ "${sleep_time:-0}" -gt 0 ]
     then
@@ -135,7 +135,7 @@ function http::store_cache() {
       logging::trace '%d,%d,%s,%d,%d,%s' "$exitcode" "$http_code" "$method" "$size_body" "$size_header" "$url_effective"
       if [ "$exitcode" -eq 0 ] && [ "${method}" != "HEAD" ] && [ "${http_code:0:1}" = '2' ] && [ "${http_code}" != '204' ]
       then
-        { tail -c "+$total_size_header" | head -c "$size_header"; } < "$header_dump" | {
+        stream::slice "$total_size_header" "$size_header" < "$header_dump" | {
           jq -L"$JQ_LIB_DIR" -Rscr \
             --arg url_effective "$url_effective" \
             '
@@ -155,11 +155,9 @@ function http::store_cache() {
               .expires // ""
             '
         } | {
-          IFS= read -r entry
-          if [ -n "$entry" ]
-          then
-            IFS= read -r date
-            IFS= read -r expires
+          IFS= read -r entry && {
+            IFS= read -r date || :
+            IFS= read -r expires || :
             local cache_filename
             cache_filename="$(echo "$entry" | md5sum | cut -d' ' -f1)"
             local cache_file="$CACHE_DIR/$cache_filename"
@@ -169,7 +167,7 @@ function http::store_cache() {
               printf '%s\t%s\t%s\t%s\n' "$entry" "$expires" "$date" "$cache_file" >> "$CACHE_INDEX_FILE"
               { tail -c "+$total_size_body"| head -c "$size_body"; } < "$response_dump" > "$cache_file"
             fi
-          fi
+          }
         }
       fi
       total_size_header=$(( total_size_header + size_header ))
@@ -180,7 +178,7 @@ function http::store_cache() {
       total_size_body=$(( total_size_body + size_body ))
     done
 
-    if [ "$XTRACE" -ne 0 ]
+    if [ "${XTRACE:-0}" -ne 0 ]
     then
       local size_response_dump
       size_response_dump="$(wc -c < "$response_dump")"

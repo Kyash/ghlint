@@ -16,3 +16,9 @@ function array::first() {
 function array::last() {
   echo "${@:$#:1}"
 }
+
+function stream::slice() {
+  local offset="${1:-0}"
+  local length="${2:--0}"
+  tail -c +"$offset" | head -c "$length"
+}
