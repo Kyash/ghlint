@@ -8,8 +8,8 @@ FROM stage0 as stage1
 USER curl_user
 RUN mkdir /home/curl_user/githublint
 WORKDIR /home/curl_user/githublint
-COPY --chown=curl_user githublint.sh .
-COPY --chown=curl_user lib/ ./lib/
+COPY --chown=100 githublint.sh .
+COPY --chown=100 lib/ ./lib/
 
 FROM stage1 as stage2
 ENTRYPOINT [ "./githublint.sh" ]
