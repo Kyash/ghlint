@@ -15,7 +15,9 @@ function logging::log() {
       printf "$@"
     else
       cat
-    fi
+    fi | {
+      sed -e "s/\b${GITHUB_TOKEN}\b/$(eval printf x"%.s" "{1..${#GITHUB_TOKEN}}")/g"
+    }
     printf '\e[m\n'
   ) >&2 6>>"$0"
 }
