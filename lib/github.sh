@@ -17,13 +17,23 @@ function github::configure_curlrc() {
 function github::list() {
   local url="$1"
   shift
+
+  # shellcheck disable=SC2016
   local filter='
     import "http" as http;
 
-    http::parse_headers | .[1] | .link // empty | http::parse_link_header | map(select(.rel == "last")) | first | .href
+    http::parse_headers | .[1] | .link |
+    if .
+    then
+      http::parse_link_header | map(select(.rel == "last")) | first | .href
+    else
+      $url
+    end
   '
-  http::request -I "${url}" "$@" | jq -L"$JQ_LIB_DIR" -Rscr "$filter" | http::parse_url | jq -r '.searchParams.page' | {
+  http::request -I "${url}" "$@" | jq -L"$JQ_LIB_DIR" -Rscr --arg url "$url" "$filter" |
+    http::parse_url | jq -r '.searchParams.page // ""' | {
     IFS= read -r num_of_pages
+    logging::debug '%s' "$(declare -p num_of_pages)"
     http::request "${url}?page=[1-${num_of_pages:-1}]" "$@" -f --fail-early github::_retry_when_rate_limit_is_exceeded
   }
 }
