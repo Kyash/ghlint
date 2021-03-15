@@ -7,6 +7,8 @@ function logging::log() {
     local level="$1"
     local color="$2"
     shift 2
+
+    flock 6
     printf '\e[%sm[%s]\t' "$color" "$level"
     if [ $# -ne 0 ]
     then
@@ -14,8 +16,8 @@ function logging::log() {
     else
       cat
     fi
-    printf '\n\e[m'
-  ) >&2
+    printf '\e[m\n'
+  ) >&2 6>>"$0"
 }
 
 function logging::error() {
