@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ue
+set -ueo pipefail
 
 declare SCRIPT_DIR
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -32,7 +32,7 @@ declare DEBUG=${DEBUG:-0}
 declare XTRACE=${XTRACE:-0}
 declare REPO_FILTER=${REPO_FILTER:-.}
 declare REPORTER=${REPORTER:-tsv}
-declare EXTENSIONS="${EXTENSIONS:-stats/commit_activity,teams,codeowners,branches}"
+declare EXTENSIONS="${EXTENSIONS:-stats.commit_activity,teams,codeowners,branches}"
 declare RC_FILE=${RC_FILE:-.githublintrc.json}
 declare CURLRC=
 declare PARALLELISM=${PARALLELISM:-100}
@@ -87,7 +87,7 @@ function main() {
     } | logging::debug
   fi
 
-  if [ $XTRACE -ne 0 ]
+  if [ "${XTRACE:-0}" -ne 0 ]
   then
     set -x
     {

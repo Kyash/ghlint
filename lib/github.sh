@@ -34,7 +34,7 @@ function github::list() {
     jq -L"$JQ_LIB_DIR" -Rscr --arg url "$url" "$filter" |
     http::parse_url | jq -r '.searchParams.page // ""' | {
       IFS= read -r num_of_pages
-      logging::debug '%s' "$(declare -p num_of_pages)"
+      logging::trace '%s' "$(declare -p num_of_pages)"
       http::request "${url}?page=[1-${num_of_pages:-1}]" "$@" -f --fail-early github::_retry_when_rate_limit_is_exceeded
     }
 }
@@ -108,74 +108,45 @@ function github::fetch_branches() {
   done | jq -sc
 }
 
+function github::fetch_stats.commit_activity() {
+  local full_name="$1"
+  github::fetch "${GITHUB_API_ORIGIN}/repos/$full_name/stats/commit_activity"
+}
+
+function github::fetch_teams() {
+  local full_name="$1"
+  github::list "${GITHUB_API_ORIGIN}/repos/$full_name/teams"
+}
+
 function github::fetch_repository() {
   local repo="$1"
   jq -nr --argjson repo "$repo" '$repo | [.full_name, .default_branch] | map(. // "") | .[]' | {
     IFS='' read -r full_name
     IFS='' read -r default_branch
 
-    local commit_activity_dump
-    commit_activity_dump="$(mktemp)"
-    echo '[]' > "$commit_activity_dump"
-    if echo "$EXTENSIONS" | grep -q '\bstats/commit_activity\b'
-    then
+    local dumps=()
+    for extension in ${EXTENSIONS//,/$'\t'}
+    do
+      local funcname="github::fetch_${extension}"
+      function::exists "${funcname}" || continue
+      local dump_file
+      dump_file="$(mktemp)"
+      echo '{}' > "$dump_file"
+      dumps+=("${dump_file}")
       {
-        github::fetch "${GITHUB_API_ORIGIN}/repos/$full_name/stats/commit_activity" | jq -c > "$commit_activity_dump"
-        logging::debug '%s commit_activity JSON size: %d' "$full_name" "$(wc -c < "$commit_activity_dump")"
+        "$funcname" "$full_name" "ref/heads/$default_branch" |
+          jq -c --arg extension "$extension" '. as $resource | null | setpath($extension | split("."); $resource)' > "$dump_file"
+        logging::debug '%s %s JSON size: %d' "$full_name" "$extension" "$(wc -c < "$dump_file")"
       } &
-    fi
+    done
 
-    local teams_dump
-    teams_dump="$(mktemp)"
-    echo '[]' > "$teams_dump"
-    if echo "$EXTENSIONS" | grep -q '\bteams\b'
-    then
-      {
-        github::list "${GITHUB_API_ORIGIN}/repos/$full_name/teams" | jq -c > "$teams_dump"
-        logging::debug '%s teams JSON size: %d' "$full_name" "$(wc -c < "$teams_dump")"
-      } &
-    fi
-
-    local codeowners_dump
-    codeowners_dump="$(mktemp)"
-    echo '[]' > "$codeowners_dump"
-    if echo "$EXTENSIONS" | grep -q '\bcodeowners\b'
-    then
-      {
-        github::fetch_codeowners "$full_name" "ref/heads/${default_branch}" > "$codeowners_dump" 
-        logging::debug '%s codeowners JSON size: %d' "$full_name" "$(wc -c < "$codeowners_dump")"
-      } &
-    fi
-
-    local branches_dump
-    branches_dump="$(mktemp)"
-    echo '[]' > "$branches_dump"
-    if echo "$EXTENSIONS" | grep -q '\bbranches\b'
-    then
-      {
-        github::fetch_branches "$full_name" > "$branches_dump"
-        logging::debug '%s branches JSON size: %d' "$full_name" "$(wc -c < "$branches_dump")"
-      } &
-    fi
+    logging::trace '%s' "$(declare -p dumps)"
 
     wait
 
-    if [ "$XTRACE" -ne 0 ]
-    then
-      declare -p commit_activity_dump teams_dump codeowners_dump branches_dump | while IFS= read -r line
-      do
-        logging::trace '%s' "$line"
-      done
-    fi
-
     local repo_dump
     repo_dump="$(mktemp)"
-    jq -cs 'add' \
-      <(echo "$repo") \
-      <(< "${commit_activity_dump}" jq -c '{ stats: { commit_activity: . } }') \
-      <(< "${teams_dump}" jq -c '{ teams: . }') \
-      <(< "${codeowners_dump}" jq -c '{ codeowners: . }') \
-      <(< "$branches_dump" jq -c '{ branches: . }') | tee "$repo_dump"
+    jq -cs 'add' <(echo "$repo") "${dumps[@]}" | tee "$repo_dump"
     logging::debug '%s repository JSON size: %d' "$full_name" "$(wc -c < "$repo_dump")"
   }
 }
