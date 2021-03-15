@@ -1,4 +1,6 @@
-#!/bin/bash -ue
+#!/bin/bash
+
+set -ue
 
 declare SCRIPT_DIR
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -77,6 +79,7 @@ function main() {
 
   if [ $DEBUG -ne 0 ]
   then
+    set -E
     trap inspect ERR
     test -f "$RC_FILE" && {
       printf 'Run-Control file was found. '
@@ -86,7 +89,7 @@ function main() {
 
   if [ $XTRACE -ne 0 ]
   then
-    set -xE
+    set -x
     {
       declare -p
       bash --version
