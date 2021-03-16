@@ -10,11 +10,6 @@ function http::configure_curlrc() {
   echo "$@"
 }
 
-# shellcheck disable=SC2120
-function http::parse_url() {
-  node "$LIB_DIR/parse_url.js" "$@"
-}
-
 function http::_request() {
   curl -q -K "$CURLRC" "$@"
 }

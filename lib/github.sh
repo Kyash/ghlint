@@ -30,13 +30,20 @@ function github::list() {
       $url
     end
   '
-  http::request -I "${url}" "$@" | 
-    jq -L"$JQ_LIB_DIR" -Rscr --arg url "$url" "$filter" |
-    http::parse_url | jq -r '.searchParams.page // ""' | {
-      IFS= read -r num_of_pages
-      logging::trace '%s' "$(declare -p num_of_pages)"
-      http::request "${url}?page=[1-${num_of_pages:-1}]" "$@" -f --fail-early github::_retry_when_rate_limit_is_exceeded
-    }
+  # shellcheck disable=SC2016
+  local filter2='
+    import "url" as url;
+
+    . as $url |
+    (.searchParams.page // "" | if . == "" then 1 else tonumber end) as $num_of_pages |
+    range($num_of_pages) | [ {} + $url, . + 1 ] | .[0].searchParams.page = .[1] | .[0] | url::tostring
+  '
+  http::request -I "${url}" "$@" |
+    jq -L"$JQ_LIB_DIR" -Rscr --arg url "$url" "$filter" | http::parse_url |
+    jq -L"$JQ_LIB_DIR" -cr "$filter2" | while IFS= read -r url
+    do
+      github::fetch "$url" "$@"
+    done
 }
 
 function github::fetch() {
