@@ -20,7 +20,25 @@ function array::last() {
 function stream::slice() {
   local offset="${1:-0}"
   local length="${2:--0}"
-  tail -c +"$offset" | head -c "$length"
+  local ignore_sigpipe="${3:-}"
+  {
+    if [ "$offset" -eq 0 ]
+    then
+      cat
+    else 
+      tail -c +"$offset"
+    fi || {
+      local exit_status="$?"
+      [ "$exit_status" -ne 141 ] && return "$exit_status"
+      if [ -n "$ignore_sigpipe" ]
+      then
+        logging::debug '%s function caught SIGPIPE (status: %d).' "${FUNCNAME[0]}" "$exit_status"
+        return "$exit_status"
+      else
+        logging::debug '%s function ignored SIGPIPE.' "${FUNCNAME[0]}" "$exit_status"
+      fi
+    }
+  } | head -c "$length"
 }
 
 function crypto::hash() {
