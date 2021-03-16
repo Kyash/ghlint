@@ -48,7 +48,17 @@ function github::fetch() {
   {
     flock -s 6
     http::find_cache "$url" || echo 'null'
-  } 6>>"$CACHE_INDEX_FILE" <"$CACHE_INDEX_FILE" > "$cache_index_json"
+  } 6>>"$CACHE_INDEX_FILE" <"$CACHE_INDEX_FILE" >"$cache_index_json"
+
+  IFS='' read -r cache_file \
+    < <(jq -L"$JQ_LIB_DIR" -r 'import "http" as http; . // empty | http::filter_up_to_date_cache_index(.; .) | .file' "$cache_index_json") \
+    || :
+  if [ -f "$cache_file" ]
+  then
+    cat "$cache_file"
+    logging::debug 'Respond from the cache instead of %s' "$url"
+    return 0
+  fi || :
 
   local filter='."last-modified" | if type == "object" then ["-H", "If-Modified-Since: \(.string)"] | @tsv else empty end'
   <"$cache_index_json" jq -r "$filter" | {

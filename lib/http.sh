@@ -79,7 +79,7 @@ function http::clean_cache() {
   local outdated_files="${dumps[1]}"
   {
     flock -s 6
-    jq -L"$JQ_LIB_DIR" -Rcr 'import "http" as http; http::filter_up_to_date_raw_cache_index(."last-modified")' \
+    jq -L"$JQ_LIB_DIR" -Rcr 'import "http" as http; http::filter_up_to_date_cache_index(http::parse_cache_index; ."last-modified")' \
       >"$new_cache_index_file" 2>"$outdated_files"
     flock -x 6
     cat <"$new_cache_index_file" >"$CACHE_INDEX_FILE"

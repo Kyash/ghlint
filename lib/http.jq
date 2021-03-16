@@ -62,9 +62,8 @@ def parse_cache_index:
   }
 ;
 
-def filter_up_to_date_raw_cache_index(filter):
+def filter_up_to_date_cache_index(parser; filter):
   def _filter:
-    parse_cache_index | 
     ([
       .expires.unixtime,
       ((."cache-control" | map(select(test("^max-age=")) | split("=")[1] | tonumber) | max) + .date.unixtime)
@@ -72,5 +71,5 @@ def filter_up_to_date_raw_cache_index(filter):
     if (filter or $expires > now) then true else (.file | stderr) | false end
   ;
 
-  select(_filter)
+  select(parser | _filter)
 ;
