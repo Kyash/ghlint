@@ -61,7 +61,7 @@ function http::request() {
   fi
 
   local functions=(
-    http::store_cache
+    http::callback_store_cache
     "$callback"
   )
   for func in "${functions[@]}"
@@ -71,42 +71,74 @@ function http::request() {
   return
 }
 
+function http::clean_cache() {
+  local dumps=()
+  dumps+=("$(mktemp)")
+  dumps+=("$(mktemp)")
+  local new_cache_index_file="${dumps[0]}"
+  local outdated_files="${dumps[1]}"
+  {
+    flock -s 6
+    jq -L"$JQ_LIB_DIR" -Rcr 'import "http" as http; http::filter_up_to_date_raw_cache_index(."last-modified")' \
+      >"$new_cache_index_file" 2>"$outdated_files"
+    flock -x 6
+    cat <"$new_cache_index_file" >"$CACHE_INDEX_FILE"
+    logging::debug '%s' "Updated cache index file."
+  } 6>>"$CACHE_INDEX_FILE" <"$CACHE_INDEX_FILE"
+
+  jq -r < "$outdated_files" | {
+    local count=0
+    while IFS= read -r file
+    do
+      if [ -f "$file" ]
+      then
+        rm "$file"
+      fi
+      count=$(( count + 1 ))
+    done
+    logging::debug 'Deleted %d expired cache files.' "$count"
+  }
+}
+
 function http::find_cache() {
   local url_effective="$1"
   local index
   index="$(echo "$url_effective" | crypto::hash)"
   grep "^${index}\t" |
-    jq -L"$JQ_LIB_DIR" -R 'import "http" as http; http::parse_cache_index' |
-    jq -esr --arg url "$url_effective" \
-      'map(select(.url_effective == $url)) | reduce .[] as $entry (null; if ($entry.date.unixtime > .date.unixtime) then $entry else . end)'
+    jq -L"$JQ_LIB_DIR" -Rc 'import "http" as http; http::parse_cache_index' |
+    jq -escr --arg url "$url_effective" \
+      '.[] | select(.url_effective == $url) | reduce . as $e (null; if ($e.date.unixtime > .date.unixtime) then $e else . end)'
 }
 
 function http::respond_from_cache() {
+  jq -r '.file' | {
+    IFS='' read -r file
+    [ -f "$file" ] || return 1
+    cat "$file"
+  }
+  return 0
+}
+
+function http::callback_respond_from_cache() {
   local exit_status="$1"
-  local response_dump="$2"
-  local header_dump="$3"
   local stat_dump="$4"
-  local args=("${@:5}")
   jq -scr 'map([.stat.http_code, .stat.url_effective] | @tsv) | .[]' < "$stat_dump" | {
-    local total_size_header=0
-    local total_size_body=0
     while IFS=$'\t' read -r http_code url_effective
     do
       if [ "$http_code" = "304" ]
       then
-        http::find_cache "$url_effective" < "$CACHE_INDEX_FILE" | jq -r '.file' | {
-          IFS='' read -r file
-          [ -f "$file" ] || return 24
-          logging::debug 'Respond from the cache instead of %s' "$url_effective"
-          cat "$file"
-        }
+        {
+          flock -s 6
+          http::find_cache "$url_effective" | http::respond_from_cache &&
+            logging::debug 'Respond from the cache instead of %s' "$url_effective"
+        } 6>>"$CACHE_INDEX_FILE" <"$CACHE_INDEX_FILE" || return 24
       fi
     done
   }
   return "$exit_status"
 }
 
-function http::sleep_when_rate_limit_is_exceeded() {
+function http::callback_sleep_when_rate_limit_is_exceeded() {
   local exit_status="$1"
   local response_dump="$2"
   local header_dump="$3"
@@ -155,7 +187,7 @@ function http::sleep_when_rate_limit_is_exceeded() {
   return "$exit_status"
 }
 
-function http::store_cache() {
+function http::callback_store_cache() {
   local exit_status="$1"
   local response_dump="$2"
   local header_dump="$3"
@@ -201,14 +233,14 @@ function http::store_cache() {
             index="$(echo "$url_effective" | crypto::hash)"
             local cache_file="$CACHE_DIR/$cache_filename"
             {
-              flock 3
+              flock 6
               if [ ! -e "$cache_file" ]
               then
                 touch "$cache_file"
                 stream::slice "$total_size_body" "$size_body" < "$response_dump" > "$cache_file"
-                printf '%s\t%s\t%s\t%s\t%s\n' "$index" "$entry" "$expires" "$date" "$cache_file" >> "$CACHE_INDEX_FILE"
+                printf '%s\t%s\t%s\t%s\t%s\n' "$index" "$entry" "$expires" "$date" "$cache_file" >>"$CACHE_INDEX_FILE"
               fi
-            } 3>>"$CACHE_INDEX_FILE"
+            } 6>>"$CACHE_INDEX_FILE"
           }
         }
       fi

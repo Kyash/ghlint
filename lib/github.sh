@@ -42,20 +42,28 @@ function github::list() {
 function github::fetch() {
   local url="$1"
   shift
+
+  local cache_index_json
+  cache_index_json="$(mktemp)"
+  {
+    flock -s 6
+    http::find_cache "$url" || echo 'null'
+  } 6>>"$CACHE_INDEX_FILE" <"$CACHE_INDEX_FILE" > "$cache_index_json"
+
   local filter='."last-modified" | if type == "object" then ["-H", "If-Modified-Since: \(.string)"] | @tsv else empty end'
-  { http::find_cache "$url" < "$CACHE_INDEX_FILE" || echo 'null'; } | jq -r "$filter" | {
+  <"$cache_index_json" jq -r "$filter" | {
     IFS=$'\t' read -ra options || :
     http::request "$url" "$@" "${options[@]}" -g -f --fail-early github:_callback_fetch
   }
 }
 
 function github:_callback_fetch() {
-  http::respond_from_cache "$@"
+  http::callback_respond_from_cache "$@"
   github::_retry_when_rate_limit_is_exceeded "$@"
 }
 
 function github::_retry_when_rate_limit_is_exceeded() {
-  http::sleep_when_rate_limit_is_exceeded "$@"
+  http::callback_sleep_when_rate_limit_is_exceeded "$@"
   if [ "$?" -eq 20 ]
   then
     local args=("${@:5}")

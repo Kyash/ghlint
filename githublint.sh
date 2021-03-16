@@ -120,6 +120,8 @@ function main() {
 
   cd "$(mktemp -d)"
 
+  http::clean_cache &
+
   if [ -f "$RC_FILE" ]
   then
     cat < "$RC_FILE"

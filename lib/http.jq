@@ -31,28 +31,46 @@ def parse_link_header:
   )
 ;
 
-def totime:
-  if . == null or . == "" then
-    .
-  else
-    {
-      string: .,
-      unixtime: (strptime("%a, %d %b %Y %H:%M:%S %Z") | mktime)
-    }
-  end
-;
-
 def parse_cache_index:
-  split("\t") |
+  def totime:
+    def parse:
+      try (strptime("%a, %d %b %Y %H:%M:%S %Z") | mktime) catch null
+    ;
+
+    def isnumber:
+      if type == "number" then true else try (tonumber | true) catch false end
+    ;
+
+    if . == null then
+      .
+    else
+      { string: ., unixtime: (if isnumber then tonumber else parse end) }
+    end
+  ;
+
+  split("\t") | map(if . == "" then null else . end) |
   {
     url_effective: .[1],
     "last-modified": (.[2] | totime),
     etag: .[3],
-    "cache-control": .[4],
+    "cache-control": (.[4] | if . == null then . else split(",") | map(ltrimstr(" ")) end),
     pragma: .[5],
-    vary: .[6],
+    vary: (.[6] | if . == null then . else split(",") | map(ltrimstr(" ")) end),
     expires: (.[7] | totime),
     date: (.[8] | totime),
     file: .[9]
   }
+;
+
+def filter_up_to_date_raw_cache_index(filter):
+  def _filter:
+    parse_cache_index | 
+    ([
+      .expires.unixtime,
+      ((."cache-control" | map(select(test("^max-age=")) | split("=")[1] | tonumber) | max) + .date.unixtime)
+    ] | max) as $expires |
+    if (filter or $expires > now) then true else (.file | stderr) | false end
+  ;
+
+  select(_filter)
 ;
