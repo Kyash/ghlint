@@ -5,6 +5,8 @@
 source "$LIB_DIR/http.sh"
 # shellcheck source=./lib/logging.sh
 source "$LIB_DIR/logging.sh"
+# shellcheck source=./lib/url.sh
+source "$LIB_DIR/url.sh"
 
 function github::configure_curlrc() {
   printf -- '-H "%s"\n' "Accept: application/vnd.github.v3+json, application/vnd.github.luke-cage-preview+json"
@@ -39,7 +41,7 @@ function github::list() {
     range($num_of_pages) | [ {} + $url, . + 1 ] | .[0].searchParams.page = .[1] | .[0] | url::tostring
   '
   http::request -I "${url}" "$@" |
-    jq -L"$JQ_LIB_DIR" -Rscr --arg url "$url" "$filter" | http::parse_url |
+    jq -L"$JQ_LIB_DIR" -Rscr --arg url "$url" "$filter" | url::parse |
     jq -L"$JQ_LIB_DIR" -cr "$filter2" | while IFS= read -r url
     do
       github::fetch "$url" "$@"
@@ -55,11 +57,10 @@ function github::fetch() {
   {
     flock -s 6
     http::find_cache "$url" || echo 'null'
-  } 6>>"$CACHE_INDEX_FILE" <"$CACHE_INDEX_FILE" >"$cache_index_json"
+  } 6>>"$CACHE_INDEX_FILE" >"$cache_index_json" <"$CACHE_INDEX_FILE"
 
-  IFS='' read -r cache_file \
-    < <(jq -L"$JQ_LIB_DIR" -r 'import "http" as http; . // empty | http::filter_up_to_date_cache_index(.; .) | .file' "$cache_index_json") \
-    || :
+  local filter2='import "http" as http; . // empty | http::filter_up_to_date_cache_index(.; .) | .file'
+  IFS='' read -r cache_file < <(jq -L"$JQ_LIB_DIR" -r "$filter2" "$cache_index_json") || :
   if [ -f "$cache_file" ]
   then
     cat "$cache_file"
@@ -68,10 +69,8 @@ function github::fetch() {
   fi || :
 
   local filter='."last-modified" | if type == "object" then ["-H", "If-Modified-Since: \(.string)"] | @tsv else empty end'
-  <"$cache_index_json" jq -r "$filter" | {
-    IFS=$'\t' read -ra options || :
-    http::request "$url" "$@" "${options[@]}" -g -f --fail-early github:_callback_fetch
-  }
+  IFS=$'\t' read -ra options < <(jq -r "$filter" "$cache_index_json") || :
+  http::request "$url" "$@" "${options[@]}" -g -f --fail-early github:_callback_fetch
 }
 
 function github:_callback_fetch() {
