@@ -216,7 +216,7 @@ function main() {
 }
 
 function inspect() {
-  logging::debug '%s function caught an error (status: %d).' "${FUNCNAME[1]}" "$?"
+  logging::debug '%s function caught an error on line %d (status: %d).' "${FUNCNAME[1]}" "${BASH_LINENO[0]}" "$?"
   logging::debug '%s' "$(declare -p FUNCNAME)"
 }
 
