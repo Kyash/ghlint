@@ -35,7 +35,7 @@ function stream::slice() {
         logging::debug '%s function caught SIGPIPE (status: %d).' "${FUNCNAME[0]}" "$exit_status"
         return "$exit_status"
       else
-        logging::debug '%s function ignored SIGPIPE.' "${FUNCNAME[0]}" "$exit_status"
+        logging::debug '%s function ignored SIGPIPE.' "${FUNCNAME[0]}"
       fi
     }
   } | head -c "$length"
