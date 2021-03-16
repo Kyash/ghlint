@@ -142,11 +142,12 @@ function main() {
     org_dump="$(mktemp)"
     local resource_name
     resource_name="$(if [ -n "$ORG" ]; then echo 'organizations'; else echo 'users'; fi)"
-    github::fetch "${GITHUB_API_ORIGIN}/$SLUG" | jq -c --arg resource_name "$resource_name" '{resources:{($resource_name):[.]}}' > "$org_dump"
+    github::fetch "${GITHUB_API_ORIGIN}/$SLUG" |
+      jq -c --arg resource_name "$resource_name" '{ resources: { ($resource_name): [.] } }' > "$org_dump"
     local results_dump
     results_dump="$(mktemp)"
     {
-      jq -r '.rules|map(.signature)|.[]|select(test("^rules::org::"))' < "$rules_dump" | while read -r func
+      jq -r '.rules | map(.signature) | .[] | select(test("^rules::org::"))' < "$rules_dump" | while read -r func
       do
         logging::debug 'Analysing %s about %s ...' "$ORG" "$func"
         eval "$func" analyze "$ORG" < "$org_dump" || warn '%s fail %s rule.' "$ORG" "$func"
@@ -155,7 +156,7 @@ function main() {
     json_seq::new "$org_dump" "$rules_dump" "$results_dump"
 
     local num_of_repos
-    num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name]|first|.public_repos + .total_private_repos' "$org_dump")"
+    num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name] | first | .public_repos + .total_private_repos' "$org_dump")"
     logging::info '%s has %d repositories.' "$SLUG" "$num_of_repos"
     logging::info 'Fetching %s repositories ...' "$SLUG"
     github::list "${GITHUB_API_ORIGIN}/${SLUG}/repos" -G -d 'per_page=100' |
@@ -182,14 +183,14 @@ function main() {
             repo_dump="$(mktemp)"
             {
               logging::info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
-              github::fetch_repository "$repo" | jq -c '{resources:{repositories:[.]}}' > "$repo_dump"
+              github::fetch_repository "$repo" | jq -c '{ resources: { repositories: [.] } }' > "$repo_dump"
             }
 
             local results_dump
             results_dump="$(mktemp)"
             {
               logging::info '(%.0f%%) Analysing %s repository ...' "$progress_rate" "$full_name"
-              jq -r '.rules|map(.signature)|.[]|select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
+              jq -r '.rules | map(.signature) | .[] | select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
               do
                 logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
                 "$func" analyze "$full_name" < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
