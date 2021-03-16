@@ -169,7 +169,7 @@ function main() {
         do
           local progress_rate=$(( ++count * 100 / num_of_repos ))
           logging::debug 'Running %d jobs ...' "$(jobs | wc -l)"
-          while [ "$(jobs | wc -l)" -gt "$PARALLELISM" ]
+          while [ "$PARALLELISM" -gt 0 ] && [ "$(jobs | wc -l)" -gt "$PARALLELISM" ]
           do
             logging::debug 'Wait (running %d jobs).' "$(jobs | wc -l)"
             sleep .5
@@ -213,17 +213,19 @@ function main() {
   } | {
     "reporter::to_$REPORTER" "$rules_dump"
   }
+  wait
 }
 
 function inspect() {
   logging::debug '%s function caught an error on line %d (status: %d).' "${FUNCNAME[1]}" "${BASH_LINENO[0]}" "$?"
   logging::debug '%s' "$(declare -p FUNCNAME)"
+  wait
 }
 
 function finally () {
   logging::debug 'command exited with status %d' $?
-  logging::debug '%s' "$(declare -p FUNCNAME)"
   rm -f "$CURLRC"
+  wait
 }
 trap finally EXIT
 
