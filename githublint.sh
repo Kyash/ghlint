@@ -36,6 +36,7 @@ source "$LIB_DIR/logging.sh"
 
 declare -r CURL_OPTS=${CURL_OPTS:--s}
 declare -r GITHUB_API_ORIGIN=${GITHUB_API_ORIGIN:-https://api.github.com}
+declare LOG_LEVEL=${LOG_LEVEL:-6}
 declare DEBUG=${DEBUG:-0}
 declare XTRACE=${XTRACE:-0}
 declare REPO_FILTER=${REPO_FILTER:-.}
@@ -87,6 +88,7 @@ function main() {
 
   if [ $DEBUG -ne 0 ]
   then
+    LOG_LEVEL=7
     set -E
     trap inspect ERR
     test -f "$RC_FILE" && {
@@ -97,6 +99,7 @@ function main() {
 
   if [ "${XTRACE:-0}" -ne 0 ]
   then
+    LOG_LEVEL=9
     BASH_XTRACEFD=4
     PS4='+ ${BASH_SOURCE}:${LINENO}${FUNCNAME:+ - ${FUNCNAME}()} | '
     set -x

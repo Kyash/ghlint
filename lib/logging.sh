@@ -23,26 +23,35 @@ function logging::log() {
 }
 
 function logging::error() {
-  logging::log ERROR 31 "$@"
+  if [ ${LOG_LEVEL:-0} -ge 3 ]
+  then
+    logging::log ERROR 31 "$@"
+  fi
 }
 
 function logging::warn() {
-  logging::log WARN 35 "$@"
+  if [ ${LOG_LEVEL:-0} -ge 4 ]
+  then
+    logging::log WARN 35 "$@"
+  fi
 }
 
 function logging::info() {
-  logging::log INFO 36 "$@"
+  if [ ${LOG_LEVEL:-0} -ge 6 ]
+  then
+    logging::log INFO 36 "$@"
+  fi
 }
 
 function logging::debug() {
-  if [ ${DEBUG:-0} -ne 0 ]
+  if [ ${LOG_LEVEL:-0} -ge 7 ]
   then
     logging::log DEBUG 37 "$@"
   fi
 }
 
 function logging::trace() {
-  if [ ${XTRACE:-0} -ne 0 ]
+  if [ ${LOG_LEVEL:-0} -ge 8 ]
   then
     logging::log TRACE 34 "$@"
   fi
