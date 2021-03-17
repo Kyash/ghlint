@@ -89,6 +89,8 @@ function main() {
 
   if [ "${XTRACE:-0}" -ne 0 ]
   then
+    BASH_XTRACEFD=4
+    PS4='+ ${BASH_SOURCE}:${LINENO}${FUNCNAME:+ - ${FUNCNAME}()} | '
     set -x
     {
       declare -p
