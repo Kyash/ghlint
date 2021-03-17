@@ -28,7 +28,7 @@ jobs:
 
       - name: Run tests
         run: |
-          docker build . "$BUILD_OPTS" --file Dockerfile
+          docker build . $BUILD_OPTS --file Dockerfile
 
           if [ "$ACTIONS_STEP_DEBUG" = "true" ]
           then
@@ -38,7 +38,7 @@ jobs:
           expected="$GITHUB_REPOSITORY"
           resulet_file="$(mktemp)"
           docker run --rm -e GITHUB_TOKEN -e XTRACE=$XTRACE \
-            "$(docker build . -q "$BUILD_OPTS" --file Dockerfile)" \
+            "$(docker build . -q $BUILD_OPTS --file Dockerfile)" \
             -df "map(select(.full_name == \"$expected\"))" orgs/Kyash | tee "$resulet_file" ||
             test $? -le 1
           actual="$(< "$resulet_file" grep '^repository\b' | head -1 | cut -f3)"
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Build image
-        run: docker build . "$BUILD_OPTS" --file Dockerfile --tag $IMAGE_NAME
+        run: docker build . $BUILD_OPTS --file Dockerfile --tag $IMAGE_NAME
 
       - name: Log into registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
