@@ -103,6 +103,7 @@ function main() {
       while IFS= read -r line
       do
         logging::trace '%s' "$line"
+        wait
       done
     )
   fi
