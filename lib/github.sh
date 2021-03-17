@@ -81,7 +81,6 @@ function github:_callback_fetch() {
 
 function github::_callback_wait_when_accepted_response_is_sucessued() {
   local exit_status="$1"
-  local header_dump="$3"
   local stat_dump="$4"
   local args=("${@:5}")
   jq -scr 'map([.stat.http_code, .stat.size_download, .stat.size_header, .stat.url_effective] | @tsv) | .[]' < "$stat_dump" | {
@@ -91,14 +90,6 @@ function github::_callback_wait_when_accepted_response_is_sucessued() {
     do
       if [ "${http_code}" = "202" ]
       then
-        stream::slice "$total_size_header" "$size_header" < "$header_dump" | {
-          jq -L"$JQ_LIB_DIR" -Rscr \
-            '
-              import "http" as http;
-
-              http::parse_headers | debug | empty
-            '
-        }
         local sleep_time=10
         logging::debug 'The response from %s was "202 Accepted", so wait %d seconds.' "$url_effective" "$sleep_time"
         sleep "$sleep_time"
