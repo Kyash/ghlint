@@ -209,6 +209,7 @@ function main() {
         done
         wait
         logging::info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
+        wait
       }
   } | {
     "reporter::to_$REPORTER" "$rules_dump"
