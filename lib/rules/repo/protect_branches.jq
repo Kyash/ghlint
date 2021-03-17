@@ -4,7 +4,7 @@ def default_configure:
   {
     patterns: [
       {
-        filter: ".*",
+        filter: null,
         branches: [.default_branch]
       }
     ]
