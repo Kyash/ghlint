@@ -2,10 +2,18 @@
 
 set -ueo pipefail
 
-declare SCRIPT_DIR
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-declare -r SCRIPT_DIR
-declare -r LIB_DIR="$SCRIPT_DIR/lib"
+function path::absolutisation() {
+  (
+    set -ue
+    local value="${1}"
+    [ -z "$value" ] && exit 1
+    cd "$(dirname "$value")" && echo -n "${PWD%/}/"
+  ) && basename "${1#/}"
+}
+
+SCRIPT_FULL_PATH="$(path::absolutisation "$0")"
+LIB_DIR="$(dirname "$SCRIPT_FULL_PATH")/lib"
+declare -r LIB_DIR
 # shellcheck disable=SC2034
 declare -r JQ_LIB_DIR="$LIB_DIR"
 # shellcheck source=./lib/github.sh
@@ -201,9 +209,9 @@ function main() {
             }
 
             {
-              flock 3
+              flock 6
               json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
-            } 3>> "$lock_file"
+            } 6>> "$lock_file"
           } &
           if [ "$PARALLELISM" -lt 1 ]
           then
