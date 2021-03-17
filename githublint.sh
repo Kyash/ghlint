@@ -109,7 +109,7 @@ function main() {
 
   declare -r SLUG="$1"
   local org
-  org="$(echo "$SLUG" | grep '^orgs/' | sed -e 's/^orgs\///')"
+  org="$(echo "$SLUG" | grep '^orgs/' || : | sed -e 's/^orgs\///')"
   declare -r ORG="$org"
 
   CURLRC="$(mktemp)"
