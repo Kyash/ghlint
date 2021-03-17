@@ -75,15 +75,15 @@ function github::fetch() {
 
 function github:_callback_fetch() {
   http::callback_respond_from_cache "$@"
-  github::_retry_when_rate_limit_is_exceeded "$@"
+  github::_callback_retry_when_rate_limit_is_exceeded "$@"
 }
 
-function github::_retry_when_rate_limit_is_exceeded() {
+function github::_callback_retry_when_rate_limit_is_exceeded() {
+  local args=("${@:5}")
   http::callback_sleep_when_rate_limit_is_exceeded "$@"
   if [ "$?" -eq 20 ]
   then
-    local args=("${@:5}")
-    "${FUNCNAME[1]}" "${args[@]}"
+    "${FUNCNAME[2]}" "${args[@]}"
   fi
 }
 
