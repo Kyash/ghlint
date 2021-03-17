@@ -11,6 +11,6 @@ function rules::repo::codeowners_file_exists() {
   }
 
   ! jq -ec -L"$JQ_LIB_DIR" \
-    --argfile descriptor <(eval "${FUNCNAME[0]}" describe) \
+    --argfile descriptor <("${FUNCNAME[0]}" describe) \
     -f "$LIB_DIR/${FUNCNAME//:://}.jq"
 }
