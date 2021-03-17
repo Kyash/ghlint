@@ -3,8 +3,8 @@
 
 # shellcheck source=./lib/rules/functions.sh
 source "$LIB_DIR/rules/functions.sh"
-# shellcheck source=./lib/http.sh
-source "$LIB_DIR/http.sh"
+# shellcheck source=./lib/github.sh
+source "$LIB_DIR/github.sh"
 
 function rules::repo::readme_file_exists() {
   test "${1:-}" = "describe" && {
