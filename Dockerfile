@@ -15,6 +15,7 @@ COPY --chown=100 githublint.sh .
 COPY --chown=100 lib/ ./lib/
 
 FROM stage-2 as stage-prd
+LABEL org.opencontainers.image.source=https://github.com/kyash/githublint
 ENTRYPOINT [ "./githublint.sh" ]
 
 FROM stage-1 as stage-dev
