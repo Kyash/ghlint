@@ -59,10 +59,8 @@ function http::request() {
     http::callback_store_cache
     "$callback"
   )
-  for func in "${functions[@]}"
-  do
-    "$func" "$exit_status" "$response_dump" "$header_dump" "$stat_dump" "$@"
-  done
+  printf '%s\n' "${functions[@]}" |
+    function::callback "$exit_status" "$response_dump" "$header_dump" "$stat_dump" "$@"
   return
 }
 
@@ -188,7 +186,7 @@ function http::callback_store_cache() {
   local header_dump="$3"
   local stat_dump="$4"
   local args=("${@:5}")
-  test "$exit_status" -eq 0 || return
+  test "$exit_status" -eq 0 || return "$exit_status"
   jq -escr 'map([.exitcode, .stat.http_code, .stat.method, .stat.size_download, .stat.size_header, .stat.url_effective] | @tsv) | .[]' "$stat_dump" | {
     local total_size_header=0
     local total_size_body=0
@@ -259,4 +257,5 @@ function http::callback_store_cache() {
         "$(( size_response_dump + size_header_dump ))"
     fi
   }
+  return "$exit_status"
 }

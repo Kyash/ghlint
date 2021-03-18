@@ -1,6 +1,8 @@
 #!/bin/false
 # shellcheck shell=bash
 
+# shellcheck source=./lib/functions.sh
+source "$LIB_DIR/functions.sh"
 # shellcheck source=./lib/http.sh
 source "$LIB_DIR/http.sh"
 # shellcheck source=./lib/logging.sh
@@ -74,9 +76,13 @@ function github::fetch() {
 }
 
 function github:_callback_fetch() {
-  http::callback_respond_from_cache "$@"
-  github::_callback_retry_when_rate_limit_is_exceeded "$@"
-  github::_callback_wait_when_accepted_response_is_sucessued "$@"
+  local callbacks=(
+    http::callback_respond_from_cache
+    github::_callback_retry_when_rate_limit_is_exceeded
+    github::_callback_wait_when_accepted_response_is_sucessued
+  )
+  printf '%s\n' "${callbacks[@]}" | function::callback "$@"
+  return
 }
 
 function github::_callback_wait_when_accepted_response_is_sucessued() {

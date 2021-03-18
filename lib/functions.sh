@@ -9,6 +9,18 @@ function function:passthrough() {
   return "$1"
 }
 
+function function::callback() {
+  local exit_status="$1"
+  while IFS= read -r callback
+  do
+    local callbacked_status=0
+    "$callback" "$@" || callbacked_status="$?"
+    logging::trace 'callbacked %s (exit status: %d)' "$callback" "$callbacked_status"
+    [ "$callbacked_status" -eq "$exit_status" ] || exit_status="$callbacked_status"
+  done
+  return "$exit_status"
+}
+
 function array::first() {
   echo "${@:1:1}"
 }
