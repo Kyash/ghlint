@@ -147,7 +147,7 @@ function main() {
   rules_dump="$(mktemp)"
   rules::list | while read -r signature
   do
-    eval "$signature" describe
+    "$signature" describe
   done | jq -sc '{rules:.}' > "$rules_dump"
 
   {

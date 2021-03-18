@@ -3,7 +3,7 @@ import "githublint" as lint;
 def describe($signature):
   {
     $signature,
-    name: "CODEOWNERS file exists"
+    name: "README file exists"
   }
 ;
 
@@ -19,10 +19,10 @@ def default_configure:
 
 def analyze:
   .repository |
-  if .codeowners | length > 0 then
+  if .readme then
     empty
   else
-    { message: "CODEOWNERS file does not exist on default branch.", location: { url } }
+    { message: "README file does not exist on default branch.", location: { url } }
   end
 ;
 
