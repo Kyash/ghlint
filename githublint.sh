@@ -169,6 +169,10 @@ function main() {
     }
     json_seq::new "$org_dump" "$rules_dump" "$results_dump"
 
+    function count_running_jobs() {
+      jobs -pr | wc -l
+    }
+
     local num_of_repos
     num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name] | first | .public_repos + .total_private_repos' "$org_dump")"
     logging::info '%s has %d repositories.' "$SLUG" "$num_of_repos"
@@ -182,12 +186,12 @@ function main() {
         while IFS= read -r repo
         do
           local progress_rate=$(( ++count * 100 / num_of_repos ))
-          logging::debug 'Running %d jobs ...' "$(jobs | wc -l)"
-          while [ "$PARALLELISM" -gt 0 ] && [ "$(jobs | wc -l)" -gt "$PARALLELISM" ]
+          logging::debug 'Running %d jobs ...' "$(count_running_jobs)"
+          while [ "$PARALLELISM" -gt 0 ] && [ "$(count_running_jobs)" -gt "$PARALLELISM" ]
           do
-            logging::debug 'Wait (running %d jobs).' "$(jobs | wc -l)"
+            logging::debug 'Wait (running %d jobs).' "$(count_running_jobs)"
             sleep .5
-            logging::debug 'Resume (running %d jobs).' "$(jobs | wc -l)"
+            logging::debug 'Resume (running %d jobs).' "$(count_running_jobs)"
           done
           {
             local full_name

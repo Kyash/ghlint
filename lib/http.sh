@@ -259,3 +259,10 @@ function http::callback_store_cache() {
   }
   return "$exit_status"
 }
+
+function http::default_response() {
+  local exit_status="${1:-$?}"
+  logging::trace '%s:%d%s | %s' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$(declare -p exit_status)"
+  [ "$exit_status" -eq 22 ] || return "$exit_status"
+  cat
+}

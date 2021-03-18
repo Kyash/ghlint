@@ -3,6 +3,8 @@
 
 # shellcheck source=./lib/rules/functions.sh
 source "$LIB_DIR/rules/functions.sh"
+# shellcheck source=./lib/http.sh
+source "$LIB_DIR/http.sh"
 # shellcheck source=./lib/jq.sh
 source "$LIB_DIR/jq.sh"
 # shellcheck source=./lib/github.sh
@@ -20,7 +22,7 @@ function rules::repo::readme_file_exists() {
     tee "$resources_dump" | jq -r '.resources.repositories | map([(. | tojson), "\(.url)/readme"] | @tsv) | .[]' |
     while IFS=$'\t' read -r repo url
     do
-      { github::fetch "${url}" || echo 'null'; } |
+      { github::fetch "${url}" || { echo 'null' | http::default_response; } } |
         jq -s '[.[1], { readme: .[0] }] | add | { resources: { repositories: [.] } }' \
           <(cat) <(echo "$repo")
     done | {
