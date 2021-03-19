@@ -260,6 +260,7 @@ function http::callback_store_cache() {
   return "$exit_status"
 }
 
+# shellcheck disable=SC2120
 function http::default_response() {
   local exit_status="${1:-$?}"
   logging::trace '%s:%d%s | %s' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$(declare -p exit_status)"
