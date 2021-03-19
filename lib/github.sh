@@ -98,6 +98,8 @@ function github::_callback_wait_when_accepted_response_is_sucessued() {
         local sleep_time=10
         logging::debug 'The response from %s was "202 Accepted", so wait %d seconds.' "$url_effective" "$sleep_time"
         sleep "$sleep_time"
+        logging::trace '%s:%d%s | %s' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$(declare -p FUNCNAME)" && wait $!
+        logging::trace '%s:%d%s | %s' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$(declare -p args)" && wait $!
         "${FUNCNAME[2]}" "${args[@]}"
       fi
       total_size_header=$(( total_size_header + size_header ))
@@ -223,7 +225,7 @@ function github::fetch_repository() {
       dumps+=("${dump_file}")
       {
         local exit_status=0
-        "$funcname" "$full_name" "ref/heads/$default_branch" |
+        { "$funcname" "$full_name" "ref/heads/$default_branch" || { echo 'null' | http::default_response; } } |
           jq --arg extension "$extension" '. as $resource | null | setpath($extension | split("."); $resource)' > "$dump_file" ||
           exit_status="$?"
         logging::debug '%s %s JSON size: %d' "$full_name" "$extension" "$(wc -c < "$dump_file")"
