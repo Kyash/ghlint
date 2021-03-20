@@ -2,6 +2,9 @@
 
 set -ueo pipefail
 
+declare LOG_LEVEL=${LOG_LEVEL:-6}
+declare LOG_ASYNC=${LOG_ASYNC:-true}
+
 function path::absolutisation() {
   (
     set -ue
@@ -36,7 +39,6 @@ source "$LIB_DIR/logging.sh"
 
 declare -r CURL_OPTS=${CURL_OPTS:--s}
 declare -r GITHUB_API_ORIGIN=${GITHUB_API_ORIGIN:-https://api.github.com}
-declare LOG_LEVEL=${LOG_LEVEL:-6}
 declare DEBUG=${DEBUG:-0}
 declare XTRACE=${XTRACE:-0}
 declare REPO_FILTER=${REPO_FILTER:-.}
@@ -86,19 +88,17 @@ function main() {
   done
   shift $((OPTIND - 1))
 
-  if [ $DEBUG -ne 0 ]
-  then
+  [ $DEBUG -eq 0 ] || {
     LOG_LEVEL=7
     set -E
     trap inspect ERR
-    test -f "$RC_FILE" && {
+    ! [ -f "$RC_FILE" ] || {
       printf 'Run-Control file was found. '
       jq -jcM '.' "$RC_FILE"
     } | logging::debug
-  fi
+  }
 
-  if [ "${XTRACE:-0}" -ne 0 ]
-  then
+  [ "${XTRACE:-0}" -eq 0 ] || {
     LOG_LEVEL=9
     BASH_XTRACEFD=4
     PS4='+ ${BASH_SOURCE}:${LINENO}${FUNCNAME:+ - ${FUNCNAME}()} | '
@@ -113,11 +113,10 @@ function main() {
       set +x
       while IFS= read -r line
       do
-        logging::trace '%s' "$line"
-        wait
+        LOG_ASYNC='' logging::trace '%s' "$line"
       done
     )
-  fi
+  }
 
   test $# -eq 1 || { usage ; exit 1; }
 
@@ -151,11 +150,18 @@ function main() {
   done | jq -sc '{rules:.}' > "$rules_dump"
 
   {
+    local lock_file
+    lock_file="$(mktemp)"
     logging::info 'Fetching %s ...' "$SLUG"
     local org_dump
     org_dump="$(mktemp)"
     local resource_name
-    resource_name="$(if [ -n "$ORG" ]; then echo 'organizations'; else echo 'users'; fi)"
+    if [ -n "$ORG" ]
+    then
+      resource_name='organizations'
+    else
+      resource_name='users'
+    fi
     github::fetch "${GITHUB_API_ORIGIN}/$SLUG" |
       jq -c --arg resource_name "$resource_name" '{ resources: { ($resource_name): [.] } }' > "$org_dump"
     local results_dump
@@ -164,10 +170,13 @@ function main() {
       jq -r '.rules | map(.signature) | .[] | select(test("^rules::org::"))' < "$rules_dump" | while read -r func
       do
         logging::debug 'Analysing %s about %s ...' "$ORG" "$func"
-        eval "$func" analyze "$ORG" < "$org_dump" || warn '%s fail %s rule.' "$ORG" "$func"
-      done | jq -sc '{results:.}' > "$results_dump"
+        "$func" analyze "$ORG" < "$org_dump" || warn '%s fail %s rule.' "$ORG" "$func"
+      done | jq -sc '{ results: . }' > "$results_dump"
     }
-    json_seq::new "$org_dump" "$rules_dump" "$results_dump"
+    {
+      flock 6
+      json_seq::new "$org_dump" "$rules_dump" "$results_dump"
+    } 6>> "$lock_file"
 
     function count_running_jobs() {
       jobs -pr | wc -l
@@ -177,74 +186,65 @@ function main() {
     num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name] | first | .public_repos + .total_private_repos' "$org_dump")"
     logging::info '%s has %d repositories.' "$SLUG" "$num_of_repos"
     logging::info 'Fetching %s repositories ...' "$SLUG"
-    github::list "${GITHUB_API_ORIGIN}/${SLUG}/repos" -G -d 'per_page=100' |
-      jq -c "${REPO_FILTER}" |
-      jq -c '.[]' | {
-        local lock_file
-        lock_file="$(mktemp)"
-        local count=0
-        while IFS= read -r repo
+    github::list "${GITHUB_API_ORIGIN}/${SLUG}/repos" -G -d 'per_page=100' | jq -c "${REPO_FILTER}" | jq -c '(. // [])[]' | {
+      local count=0
+      while IFS= read -r repo
+      do
+        local progress_rate=$(( ++count * 100 / num_of_repos ))
+        logging::debug 'Running %d jobs ...' "$(count_running_jobs)"
+        while [ "$PARALLELISM" -gt 0 ] && [ "$(count_running_jobs)" -gt "$PARALLELISM" ]
         do
-          local progress_rate=$(( ++count * 100 / num_of_repos ))
-          logging::debug 'Running %d jobs ...' "$(count_running_jobs)"
-          while [ "$PARALLELISM" -gt 0 ] && [ "$(count_running_jobs)" -gt "$PARALLELISM" ]
-          do
-            logging::debug 'Wait (running %d jobs).' "$(count_running_jobs)"
-            sleep .5
-            logging::debug 'Resume (running %d jobs).' "$(count_running_jobs)"
-          done
-          {
-            local full_name
-            full_name="$(echo "$repo" | jq -r '.full_name')"
-
-            local repo_dump
-            repo_dump="$(mktemp)"
-            {
-              logging::info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
-              github::fetch_repository "$repo" | jq -c '{ resources: { repositories: [.] } }' > "$repo_dump"
-            }
-
-            local results_dump
-            results_dump="$(mktemp)"
-            {
-              logging::info '(%.0f%%) Analysing %s repository ...' "$progress_rate" "$full_name"
-              jq -r '.rules | map(.signature) | .[] | select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
-              do
-                logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
-                "$func" analyze "$full_name" < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
-              done | jq -sc '{results:.}' > "$results_dump"
-            }
-
-            {
-              flock 6
-              json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
-            } 6>> "$lock_file"
-          } &
-          if [ "$PARALLELISM" -lt 1 ]
-          then
-            wait
-          fi
+          logging::debug 'Wait (running %d jobs).' "$(count_running_jobs)"
+          sleep .5
+          logging::debug 'Resume (running %d jobs).' "$(count_running_jobs)"
         done
-        wait
-        logging::info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
-        wait
-      }
-  } | {
-    "reporter::to_$REPORTER" "$rules_dump"
-  }
-  wait
+        {
+          local full_name
+          full_name="$(echo "$repo" | jq -r '.full_name')"
+
+          local repo_dump
+          repo_dump="$(mktemp)"
+          {
+            logging::info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
+            github::fetch_repository "$repo" | jq -c '{ resources: { repositories: [.] } }' > "$repo_dump"
+          }
+
+          local results_dump
+          results_dump="$(mktemp)"
+          {
+            logging::info '(%.0f%%) Analysing %s repository ...' "$progress_rate" "$full_name"
+            jq -r '.rules | map(.signature) | .[] | select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
+            do
+              logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
+              "$func" analyze "$full_name" < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
+            done | jq -sc '{results:.}' > "$results_dump"
+          }
+
+          {
+            flock 6
+            json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
+          } 6>> "$lock_file"
+        } &
+        if [ "$PARALLELISM" -lt 1 ]
+        then
+          wait "$!"
+        fi
+      done
+      wait
+      LOG_ASYNC='' logging::info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
+    }
+  } | "reporter::to_$REPORTER" "$rules_dump"
 }
 
 function inspect() {
-  logging::debug '%s function caught an error on line %d (status: %d).' "${FUNCNAME[1]}" "${BASH_LINENO[0]}" "$?"
-  logging::debug '%s' "$(declare -p FUNCNAME)"
-  wait
+  LOG_ASYNC='' logging::debug \
+    '%s function caught an error on line %d (status: %d).' "${FUNCNAME[1]}" "${BASH_LINENO[0]}" "$?"
+  LOG_ASYNC='' logging::debug '%s' "$(declare -p FUNCNAME)"
 }
 
 function finally () {
-  logging::debug 'command exited with status %d' $?
+  LOG_ASYNC='' logging::debug 'command exited with status %d' $?
   rm -f "$CURLRC"
-  wait
 }
 trap finally EXIT
 

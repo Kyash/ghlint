@@ -10,13 +10,19 @@ function function:passthrough() {
 }
 
 function function::callback() {
-  local exit_status="$1"
+  local job_pids=()
   while IFS= read -r callback
   do
+    "$callback" "$@" &
+    job_pids+=("$!")
+  done
+
+  local exit_status="$1"
+  for pid in "${job_pids[@]}"
+  do
     local callbacked_status=0
-    "$callback" "$@" || callbacked_status="$?"
-    logging::trace 'callbacked %s (exit status: %d)' "$callback" "$callbacked_status"
-    [ "$callbacked_status" -eq "$exit_status" ] || exit_status="$callbacked_status"
+    wait "$pid" || callbacked_status="$?"
+    [ "$callbacked_status" -eq "$1" ] || exit_status="$callbacked_status"
   done
   return "$exit_status"
 }
@@ -41,7 +47,7 @@ function stream::slice() {
       tail -c +"$offset"
     fi || {
       local exit_status="$?"
-      [ "$exit_status" -ne 141 ] && return "$exit_status"
+      [ "$exit_status" -eq 141 ] || return "$exit_status"
       if [ -n "$ignore_sigpipe" ]
       then
         logging::debug '%s function caught SIGPIPE (status: %d).' "${FUNCNAME[0]}" "$exit_status"

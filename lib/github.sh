@@ -41,12 +41,11 @@ function github::list() {
     import "url" as url;
 
     . as $url |
-    (.searchParams.page // "" | if . == "" then 1 else tonumber end) as $num_of_pages |
-    range($num_of_pages) | [ {} + $url, . + 1 ] | .[0].searchParams.page = .[1] | .[0] | url::tostring
+    (.searchParams.page // "" | if . == "" then 1 else tonumber end) as $num_of_pages | range($num_of_pages) | . + 1
   '
-  http::request -I "${url}" "$@" | jq -Rsr --arg url "$url" "$filter" | url::parse | jq -r "$filter2" | while IFS= read -r url
+  github::fetch "${url}" -I "$@" | jq -Rsr --arg url "$url" "$filter" | url::parse | jq -r "$filter2" | while IFS= read -r page
   do
-    github::fetch "$url" "$@"
+    github::fetch "$url" "$@" -G -d "page=$page"
   done
 }
 
@@ -88,31 +87,29 @@ function github::_callback_wait_when_accepted_response_is_sucessued() {
   local exit_status="$1"
   local stat_dump="$4"
   local args=("${@:5}")
-  jq -sr 'map([.stat.http_code, .stat.size_download, .stat.size_header, .stat.url_effective] | @tsv) | .[]' < "$stat_dump" | {
-    local total_size_header=0
-    local total_size_body=0
-    while IFS=$'\t' read -r http_code size_body size_header url_effective
-    do
-      if [ "${http_code}" = "202" ]
-      then
-        local sleep_time=10
-        logging::debug 'The response from %s was "202 Accepted", so wait %d seconds.' "$url_effective" "$sleep_time"
-        sleep "$sleep_time"
-        "${FUNCNAME[2]}" "${args[@]}"
-      fi
-      total_size_header=$(( total_size_header + size_header ))
-      total_size_body=$(( total_size_body + size_body ))
-    done
+
+  jq -sr 'first | .stat | [.http_code, .url_effective] | @tsv' < "$stat_dump" | {
+    IFS=$'\t' read -r http_code url_effective || :
+    if [ "${http_code}" = "202" ]
+    then
+      local sleep_time=10
+      logging::debug 'The response from %s was "202 Accepted", so wait %d seconds.' "$url_effective" "$sleep_time"
+      sleep "$sleep_time"
+      http::request "${args[@]}"
+      return
+    else
+      return "$exit_status"
+    fi
   }
-  return "$exit_status"
 }
 
 function github::_callback_retry_when_rate_limit_is_exceeded() {
   local args=("${@:5}")
-  http::callback_sleep_when_rate_limit_is_exceeded "$@"
-  local exit_status="$?"
+  local exit_status=0
+  http::callback_sleep_when_rate_limit_is_exceeded "$@" || exit_status="$?"
+  logging::trace 'http::callback_sleep_when_rate_limit_is_exceeded returned %d' "$exit_status"
   [ "$exit_status" -eq 20 ] || return "$exit_status"
-  "${FUNCNAME[2]}" "${args[@]}"
+  http::request "${args[@]}"
 }
 
 function github::find_blob() {
@@ -223,24 +220,23 @@ function github::fetch_repository() {
       dumps+=("${dump_file}")
       {
         local exit_status=0
-        "$funcname" "$full_name" "ref/heads/$default_branch" |
+        { "$funcname" "$full_name" "ref/heads/$default_branch" || { echo 'null' | http::default_response; } } |
           jq --arg extension "$extension" '. as $resource | null | setpath($extension | split("."); $resource)' > "$dump_file" ||
           exit_status="$?"
         logging::debug '%s %s JSON size: %d' "$full_name" "$extension" "$(wc -c < "$dump_file")"
         exit "$exit_status"
       } &
       job_pids+=("$!")
-      logging::trace '%s:%d%s | %s() (PID: %d)' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$funcname" "$!"
+      LOG_ASYNC='' logging::trace '| %s() (PID: %d)' "$funcname" "$!"
     done
-    logging::trace '%s:%d%s | %s' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$(declare -p dumps)"
+    LOG_ASYNC='' logging::trace '%s' "$(declare -p dumps)"
 
     local exit_status=0
     while IFS= read -r job_pid
     do
       wait "$job_pid" || {
         local job_status="$?"
-        logging::trace '%s:%d%s | PID # %d exited with status %d' \
-          "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$job_pid" "$job_status"
+        LOG_ASYNC='' logging::trace 'PID %d exited with status %d' "$job_pid" "$job_status"
         [ "$exit_status" -ne 22 ] || continue
         exit_status="$job_status"
       }
