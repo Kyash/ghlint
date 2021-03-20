@@ -70,8 +70,7 @@ function http::request() {
 
 function http::clean_cache() {
   local dumps=()
-  dumps+=("$(mktemp)")
-  dumps+=("$(mktemp)")
+  dumps+=("$(mktemp)" "$(mktemp)")
   local new_cache_index_file="${dumps[0]}"
   local outdated_files="${dumps[1]}"
   {
@@ -87,10 +86,7 @@ function http::clean_cache() {
     local count=0
     while IFS= read -r file
     do
-      if [ -f "$file" ]
-      then
-        rm "$file"
-      fi
+      ! [ -f "$file" ] || rm "$file"
       count=$(( count + 1 ))
     done
     logging::debug 'Deleted %d expired cache files.' "$count"
