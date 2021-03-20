@@ -31,6 +31,7 @@ bash -i ./launch_dev_env.sh
 
 ### Dependencies
 
+- GitHub REST API
 - cURL v7.75.0+
 - Bash v5.0+
 - Node.js v10.24.0+
