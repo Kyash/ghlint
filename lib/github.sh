@@ -41,12 +41,11 @@ function github::list() {
     import "url" as url;
 
     . as $url |
-    (.searchParams.page // "" | if . == "" then 1 else tonumber end) as $num_of_pages |
-    range($num_of_pages) | [ {} + $url, . + 1 ] | .[0].searchParams.page = .[1] | .[0] | url::tostring
+    (.searchParams.page // "" | if . == "" then 1 else tonumber end) as $num_of_pages | range($num_of_pages) | . + 1
   '
-  http::request -I "${url}" "$@" | jq -Rsr --arg url "$url" "$filter" | url::parse | jq -r "$filter2" | while IFS= read -r url
+  github::fetch "${url}" -I "$@" | jq -Rsr --arg url "$url" "$filter" | url::parse | jq -r "$filter2" | while IFS= read -r page
   do
-    github::fetch "$url" "$@"
+    github::fetch "$url" "$@" -G -d "page=$page"
   done
 }
 
@@ -98,8 +97,10 @@ function github::_callback_wait_when_accepted_response_is_sucessued() {
         local sleep_time=10
         logging::debug 'The response from %s was "202 Accepted", so wait %d seconds.' "$url_effective" "$sleep_time"
         sleep "$sleep_time"
-        logging::trace '%s:%d%s | %s' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$(declare -p FUNCNAME)" && wait $!
-        logging::trace '%s:%d%s | %s' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$(declare -p args)" && wait $!
+        [ "$XTRACE" -eq 0 ] || {
+          LOG_ASYNC='' logging::trace '%s' "$(declare -p FUNCNAME)"
+          LOG_ASYNC='' logging::trace '%s' "$(declare -p args)"
+        }
         "${FUNCNAME[2]}" "${args[@]}"
       fi
       total_size_header=$(( total_size_header + size_header ))
@@ -111,9 +112,14 @@ function github::_callback_wait_when_accepted_response_is_sucessued() {
 
 function github::_callback_retry_when_rate_limit_is_exceeded() {
   local args=("${@:5}")
-  http::callback_sleep_when_rate_limit_is_exceeded "$@"
-  local exit_status="$?"
+  local exit_status=0
+  http::callback_sleep_when_rate_limit_is_exceeded "$@" || exit_status="$?"
+  logging::trace 'http::callback_sleep_when_rate_limit_is_exceeded returned %d' "$exit_status"
   [ "$exit_status" -eq 20 ] || return "$exit_status"
+  [ "$XTRACE" -eq 0 ] || {
+    LOG_ASYNC='' logging::trace '%s' "$(declare -p FUNCNAME)"
+    LOG_ASYNC='' logging::trace '%s' "$(declare -p args)"
+  }
   "${FUNCNAME[2]}" "${args[@]}"
 }
 
@@ -232,17 +238,16 @@ function github::fetch_repository() {
         exit "$exit_status"
       } &
       job_pids+=("$!")
-      logging::trace '%s:%d%s | %s() (PID: %d)' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$funcname" "$!"
+      LOG_ASYNC='' logging::trace '| %s() (PID: %d)' "$funcname" "$!"
     done
-    logging::trace '%s:%d%s | %s' "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$(declare -p dumps)"
+    LOG_ASYNC='' logging::trace '%s' "$(declare -p dumps)"
 
     local exit_status=0
     while IFS= read -r job_pid
     do
       wait "$job_pid" || {
         local job_status="$?"
-        logging::trace '%s:%d%s | PID # %d exited with status %d' \
-          "${BASH_SOURCE[0]}" "${LINENO}" "${FUNCNAME:+ - ${FUNCNAME[0]}()}" "$job_pid" "$job_status"
+        LOG_ASYNC='' logging::trace 'PID %d exited with status %d' "$job_pid" "$job_status"
         [ "$exit_status" -ne 22 ] || continue
         exit_status="$job_status"
       }
