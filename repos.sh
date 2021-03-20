@@ -9,7 +9,10 @@ declare -r BUILD_OPTS=(--target stage-prd --file "$DOCKERFILE")
 declare -r CONTAINER_NAME="githublint_$$"
 
 function finally () {
-  docker stop "$CONTAINER_NAME"
+  docker ps -qf "name=$CONTAINER_NAME" | while IFS= read -r container_id
+  do
+    docker stop "$container_id"
+  done
 }
 
 function main() {
@@ -24,16 +27,11 @@ function main() {
     image="$(docker build . -q "${BUILD_OPTS[@]}")"
   fi
 
-  {
-    docker run --name "$CONTAINER_NAME" --rm -e GITHUB_TOKEN \
-      -v "$PWD/.githublintrc.json:/home/curl_user/githublint/.githublintrc.json" \
-      --mount "type=volume,src=githublint,dst=/home/curl_user/.githublint" \
-      "$image" \
-      "$@" \
-      2>&1 1>&3 3>&- | {
-        awk '{print strftime("%Y-%m-%dT%H:%M:%S%z") "\t" $0}'
-      }
-  } 3>&1 1>&2 | grep '^\(kind\|repository\)\t' | cut -f2-
+  docker run --name "$CONTAINER_NAME" --rm -e GITHUB_TOKEN \
+    -v "$PWD/.githublintrc.json:/home/curl_user/.githublintrc.json" \
+    --mount "type=volume,src=githublint,dst=/home/curl_user/.githublint" \
+    "$image" "$@" |
+    grep '^\(kind\|repository\)\t' | cut -f2-
 }
 
 main "$@"
