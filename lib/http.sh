@@ -2,11 +2,11 @@
 # shellcheck shell=bash
 
 # shellcheck source=./lib/functions.sh
-source "${LIB_DIR}/functions.sh"
+source "functions.sh"
 # shellcheck source=./lib/jq.sh
-source "${LIB_DIR}/jq.sh"
+source "jq.sh"
 # shellcheck source=./lib/logging.sh
-source "${LIB_DIR}/logging.sh"
+source "logging.sh"
 
 function http::configure_curlrc() {
   echo "$@"

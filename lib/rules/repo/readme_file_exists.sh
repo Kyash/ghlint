@@ -2,13 +2,13 @@
 # shellcheck shell=bash
 
 # shellcheck source=./lib/rules/functions.sh
-source "$LIB_DIR/rules/functions.sh"
+source "rules/functions.sh"
 # shellcheck source=./lib/http.sh
-source "$LIB_DIR/http.sh"
+source "http.sh"
 # shellcheck source=./lib/jq.sh
-source "$LIB_DIR/jq.sh"
+source "jq.sh"
 # shellcheck source=./lib/github.sh
-source "$LIB_DIR/github.sh"
+source "github.sh"
 
 function rules::repo::readme_file_exists() {
   local signature="${FUNCNAME[0]}"

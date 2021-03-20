@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 
 # shellcheck source=./lib/jq.sh
-source "$LIB_DIR/jq.sh"
+source "jq.sh"
 
 function rules::list() {
   declare -F | grep '^declare\s\+-fx\?\s\+rules::\(repo\|org\)::' | cut -d' ' -f3

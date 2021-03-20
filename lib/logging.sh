@@ -9,13 +9,14 @@ declare LOG_LEVEL="${LOG_LEVEL:-6}"
 function logging::log() {
   {
     set +x
+    set -ue
     local level="$1"
     local color="$2"
     local prefix="$3"
     shift 3
 
     local timestamp
-    timestamp="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+    timestamp="$(date -Iseconds)"
 
     flock 6
     printf '%s\t\e[%sm[%s]\t%s' "$timestamp" "$color" "$level" "$prefix"

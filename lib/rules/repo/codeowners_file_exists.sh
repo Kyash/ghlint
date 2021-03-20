@@ -2,9 +2,9 @@
 # shellcheck shell=bash
 
 # shellcheck source=./lib/rules/functions.sh
-source "$LIB_DIR/rules/functions.sh"
+source "rules/functions.sh"
 # shellcheck source=./lib/jq.sh
-source "$LIB_DIR/jq.sh"
+source "jq.sh"
 
 function rules::repo::codeowners_file_exists() {
   local signature="${FUNCNAME[0]}"

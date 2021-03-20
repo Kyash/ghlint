@@ -1,6 +1,9 @@
 #!/bin/false
 # shellcheck shell=bash
 
+# shellcheck source=./lib/jq.sh
+source "jq.sh"
+
 function reporter::to_tsv() {
   local org="$ORG"
   local rules_dump="$1"
@@ -26,7 +29,6 @@ function reporter::to_tsv() {
   jq -r --args '$ARGS.positional + (.rules | map(.signature)) | @tsv' "${fields[@]}" < "$rules_dump"
 
   jq -r \
-    -L"$JQ_LIB_DIR" \
     --arg org "$org" \
     --argfile rules "$rules_dump" \
     -f "$LIB_DIR/${FUNCNAME//:://}.jq"

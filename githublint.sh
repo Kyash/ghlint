@@ -16,17 +16,18 @@ function path::absolutisation() {
 
 SCRIPT_FULL_PATH="$(path::absolutisation "$0")"
 LIB_DIR="$(dirname "$SCRIPT_FULL_PATH")/lib"
+PATH="$LIB_DIR:$PATH"
 declare -r LIB_DIR
 # shellcheck disable=SC2034
 declare -r JQ_LIB_DIR="$LIB_DIR"
 # shellcheck source=./lib/github.sh
-source "$LIB_DIR/github.sh"
+source "github.sh"
 # shellcheck source=./lib/http.sh
-source "$LIB_DIR/http.sh"
+source "http.sh"
 # shellcheck source=./lib/json_seq.sh
-source "$LIB_DIR/json_seq.sh"
+source "json_seq.sh"
 # shellcheck source=./lib/logging.sh
-source "$LIB_DIR/logging.sh"
+source "logging.sh"
 {
   sources="$(mktemp)"
   find "$LIB_DIR" -path "$LIB_DIR/reporter/*.sh" -o -path "$LIB_DIR/rules/*.sh" | while read -r file

@@ -2,7 +2,9 @@
 # shellcheck shell=bash
 
 # shellcheck source=./lib/rules/functions.sh
-source "$LIB_DIR/rules/functions.sh"
+source "rules/functions.sh"
+# shellcheck source=./lib/jq.sh
+source "jq.sh"
 
 function rules::repo::manage_team_access() {
   test "${1:-}" = "describe" && {
@@ -10,7 +12,7 @@ function rules::repo::manage_team_access() {
     return
   }
 
-  ! jq -ec -L"$JQ_LIB_DIR" \
+  ! jq -e \
     --argfile descriptor <("${FUNCNAME[0]}" describe) \
     -f "$LIB_DIR/${FUNCNAME//:://}.jq"
 }

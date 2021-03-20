@@ -2,15 +2,15 @@
 # shellcheck shell=bash
 
 # shellcheck source=./lib/functions.sh
-source "$LIB_DIR/functions.sh"
+source "functions.sh"
 # shellcheck source=./lib/http.sh
-source "$LIB_DIR/http.sh"
+source "http.sh"
 # shellcheck source=./lib/jq.sh
-source "$LIB_DIR/jq.sh"
+source "jq.sh"
 # shellcheck source=./lib/logging.sh
-source "$LIB_DIR/logging.sh"
+source "logging.sh"
 # shellcheck source=./lib/url.sh
-source "$LIB_DIR/url.sh"
+source "url.sh"
 
 function github::configure_curlrc() {
   printf -- '-H "%s"\n' "Accept: application/vnd.github.v3+json, application/vnd.github.luke-cage-preview+json"
