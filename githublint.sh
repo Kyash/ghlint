@@ -32,7 +32,7 @@ source "logging.sh"
   sources="$(mktemp)"
   find "$LIB_DIR" -path "$LIB_DIR/reporter/*.sh" -o -path "$LIB_DIR/rules/*.sh" | while read -r file
   do
-    echo source "$file" "$LIB_DIR"
+    echo source "$file"
   done > "$sources"
   # shellcheck source=/dev/null
   source "$sources"
@@ -65,6 +65,8 @@ function usage() {
 }
 
 function main() {
+  trap finally EXIT
+
   local profile_dir
   profile_dir="$HOME/.githublint/$(echo "$GITHUB_TOKEN" | md5sum | cut -d' ' -f1)"
   readonly PROFILE_DIR="$profile_dir"
@@ -179,7 +181,7 @@ function main() {
       json_seq::new "$org_dump" "$rules_dump" "$results_dump"
     } 6>> "$lock_file"
 
-    function count_running_jobs() {
+    function process::count_running_jobs() {
       jobs -pr | wc -l
     }
 
@@ -192,12 +194,12 @@ function main() {
       while IFS= read -r repo
       do
         local progress_rate=$(( ++count * 100 / num_of_repos ))
-        logging::debug 'Running %d jobs ...' "$(count_running_jobs)"
-        while [ "$PARALLELISM" -gt 0 ] && [ "$(count_running_jobs)" -gt "$PARALLELISM" ]
+        logging::debug 'Running %d jobs ...' "$(process::count_running_jobs)"
+        while [ "$PARALLELISM" -gt 0 ] && [ "$(process::count_running_jobs)" -gt "$PARALLELISM" ]
         do
-          logging::debug 'Wait (running %d jobs).' "$(count_running_jobs)"
+          logging::debug 'Wait (running %d jobs).' "$(process::count_running_jobs)"
           sleep .5
-          logging::debug 'Resume (running %d jobs).' "$(count_running_jobs)"
+          logging::debug 'Resume (running %d jobs).' "$(process::count_running_jobs)"
         done
         {
           local full_name
@@ -247,6 +249,5 @@ function finally () {
   LOG_ASYNC='' logging::debug 'command exited with status %d' $?
   rm -f "$CURLRC"
 }
-trap finally EXIT
 
 main "$@"
