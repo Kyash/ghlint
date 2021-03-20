@@ -87,27 +87,20 @@ function github::_callback_wait_when_accepted_response_is_sucessued() {
   local exit_status="$1"
   local stat_dump="$4"
   local args=("${@:5}")
-  jq -sr 'map([.stat.http_code, .stat.size_download, .stat.size_header, .stat.url_effective] | @tsv) | .[]' < "$stat_dump" | {
-    local total_size_header=0
-    local total_size_body=0
-    while IFS=$'\t' read -r http_code size_body size_header url_effective
-    do
-      if [ "${http_code}" = "202" ]
-      then
-        local sleep_time=10
-        logging::debug 'The response from %s was "202 Accepted", so wait %d seconds.' "$url_effective" "$sleep_time"
-        sleep "$sleep_time"
-        [ "$XTRACE" -eq 0 ] || {
-          LOG_ASYNC='' logging::trace '%s' "$(declare -p FUNCNAME)"
-          LOG_ASYNC='' logging::trace '%s' "$(declare -p args)"
-        }
-        "${FUNCNAME[2]}" "${args[@]}"
-      fi
-      total_size_header=$(( total_size_header + size_header ))
-      total_size_body=$(( total_size_body + size_body ))
-    done
+
+  jq -sr 'first | .stat | [.http_code, .url_effective] | @tsv' < "$stat_dump" | {
+    IFS=$'\t' read -r http_code url_effective || :
+    if [ "${http_code}" = "202" ]
+    then
+      local sleep_time=10
+      logging::debug 'The response from %s was "202 Accepted", so wait %d seconds.' "$url_effective" "$sleep_time"
+      sleep "$sleep_time"
+      http::request "${args[@]}"
+      return
+    else
+      return "$exit_status"
+    fi
   }
-  return "$exit_status"
 }
 
 function github::_callback_retry_when_rate_limit_is_exceeded() {
@@ -116,11 +109,7 @@ function github::_callback_retry_when_rate_limit_is_exceeded() {
   http::callback_sleep_when_rate_limit_is_exceeded "$@" || exit_status="$?"
   logging::trace 'http::callback_sleep_when_rate_limit_is_exceeded returned %d' "$exit_status"
   [ "$exit_status" -eq 20 ] || return "$exit_status"
-  [ "$XTRACE" -eq 0 ] || {
-    LOG_ASYNC='' logging::trace '%s' "$(declare -p FUNCNAME)"
-    LOG_ASYNC='' logging::trace '%s' "$(declare -p args)"
-  }
-  "${FUNCNAME[2]}" "${args[@]}"
+  http::request "${args[@]}"
 }
 
 function github::find_blob() {
