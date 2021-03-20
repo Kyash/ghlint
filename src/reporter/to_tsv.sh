@@ -31,5 +31,5 @@ function reporter::to_tsv() {
   jq -r \
     --arg org "$org" \
     --argfile rules "$rules_dump" \
-    -f "$LIB_DIR/${FUNCNAME//:://}.jq"
+    -f "${BASH_SOURCE[0]%.*}.jq"
 }

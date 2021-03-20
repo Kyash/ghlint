@@ -17,10 +17,10 @@ function main() {
   then
     docker build . "${BUILD_OPTS[@]}"
     docker run -itd --name "$CONTAINER_NAME" -e GITHUB_TOKEN \
-      -v "$PWD:/home/curl_user/githublint" \
+      -v "$PWD:/home/curl_user/project" \
       -v "$HOME/.gitconfig:/home/curl_user/.gitconfig" \
       -v "$HOME/.ssh:/home/curl_user/.ssh" \
-      -w "/home/curl_user/githublint" \
+      -w "/home/curl_user/project" \
       -u curl_user \
       "$(docker build . -q "${BUILD_OPTS[@]}")" \
       bash

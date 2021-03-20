@@ -5,17 +5,33 @@ set -ueo pipefail
 declare LOG_LEVEL=${LOG_LEVEL:-6}
 declare LOG_ASYNC=${LOG_ASYNC:-true}
 
+function path::isabsolute() {
+  test "${1:0:1}" = "/"
+}
+
 function path::absolutisation() {
   (
     set -ue
     local value="${1}"
-    [ -z "$value" ] && exit 1
+    [ -n "$value" ] || exit 1
     cd "$(dirname "$value")" && echo -n "${PWD%/}/"
   ) && basename "${1#/}"
 }
 
-SCRIPT_FULL_PATH="$(path::absolutisation "$0")"
-LIB_DIR="$(dirname "$SCRIPT_FULL_PATH")/lib"
+function path::realize() {
+  local file="$1"
+  [ -L "$file" ] || { echo "$file" && return 0; }
+  real_file="$(readlink "$file")"
+  if path::isabsolute "$real_file"
+  then
+    echo "$real_file"
+  else
+    echo "$(dirname "$file")/$real_file"
+  fi
+}
+
+SCRIPT_FULL_PATH="$(path::absolutisation "$(path::realize "${BASH_SOURCE[0]}")")"
+LIB_DIR="$(dirname "$SCRIPT_FULL_PATH")"
 PATH="$LIB_DIR:$PATH"
 declare -r LIB_DIR
 # shellcheck disable=SC2034
@@ -54,7 +70,7 @@ declare CACHE_INDEX_FILE=
 
 function usage() {
   {
-    echo "Usage: $0 [-d] [-x] [-h] [-p parallelism] [-c run-control] [-f filter] [-r reporter] [-e extension[,extension]...] slug"
+    echo "Usage: $(basename "$0") [-d] [-x] [-h] [-p parallelism] [-c run-control] [-f filter] [-r reporter] [-e extension[,extension]...] slug"
     echo ""
     echo "Available rules:"
     rules::list | sed -e 's/^/ - /'
