@@ -11,11 +11,18 @@ function function:passthrough() {
 
 function function::callback() {
   local exit_status="$1"
+
+  local job_pids=()
   while IFS= read -r callback
   do
+    "$callback" "$@" &
+    job_pids+=("$!")
+  done
+
+  for pid in "${job_pids[@]}"
+  do
     local callbacked_status=0
-    "$callback" "$@" || callbacked_status="$?"
-    logging::trace 'callbacked %s (exit status: %d)' "$callback" "$callbacked_status"
+    wait "$pid" || callbacked_status="$?"
     [ "$callbacked_status" -eq "$exit_status" ] || exit_status="$callbacked_status"
   done
   return "$exit_status"
