@@ -1,8 +1,10 @@
 #!/bin/false
 # shellcheck shell=bash
 
-[ -v LOG_LOCK_FILE ] || LOG_LOCK_FILE="$(mktemp)"
-declare -r LOG_LOCK_FILE
+declare -p LOG_LOCK_FILE &>/dev/null || {
+  LOG_LOCK_FILE="$(mktemp)"
+  declare -r LOG_LOCK_FILE
+}
 declare LOG_ASYNC="${LOG_ASYNC:-}"
 declare LOG_LEVEL="${LOG_LEVEL:-6}"
 

@@ -23,8 +23,8 @@ function rules::repo::readme_file_exists() {
     while IFS=$'\t' read -r repo url
     do
       { github::fetch "${url}" || { echo 'null' | http::default_response; } } |
-        jq -s '[.[1], { readme: .[0] }] | add | { resources: { repositories: [.] } }' \
-          <(cat) <(echo "$repo")
+        jq -s '[.[0], { readme: .[1] }] | add | { resources: { repositories: [.] } }' \
+          <(echo "$repo") <(cat)
     done | {
       ! jq -e "${opts[@]}"
     }
