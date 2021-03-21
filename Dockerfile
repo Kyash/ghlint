@@ -15,7 +15,14 @@ FROM stage-1 as stage-deply
 COPY src /usr/local/lib/githublint
 
 FROM stage-deply as stage-prd
-LABEL org.opencontainers.image.source=https://github.com/kyash/githublint
+ARG VERSION
+LABEL \
+  org.opencontainers.image.source=https://github.com/kyash/githublint \
+  Maintainer= \
+  Name= \
+  Version= \
+  docker.cmd= \
+  version=${VERSION}
 ENTRYPOINT [ "githublint" ]
 
 FROM stage-1 as stage-dev
