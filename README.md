@@ -1,18 +1,26 @@
 # githublint
 Find problems in your GitHub settings.
 
+## Installation
+
+```sh
+git clone git@github.com:Kyash/githublint.git
+cd githublint
+install -m 755 ./bin/githublint /usr/local/bin
+```
+
 ## Usage
 
 Displayed by executing the following command:
 
 ```sh
-docker run --rm docker.pkg.github.com/kyash/githublint/githublint -h
+githublint -h
 ```
 
-### example
+### Example
 
 ```
-docker run --rm -e GITHUB_TOKEN docker.pkg.github.com/kyash/githublint/githublint orgs/Kyash
+githublint orgs/Kyash
 ```
 
 ## Prerequisites
