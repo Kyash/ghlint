@@ -29,18 +29,16 @@ jobs:
 
       - name: Run tests
         run: |
+          docker run --rm -e GITHUB_TOKEN \
+            -v "$PWD:/home/curl_user/project" \
+            -w "/home/curl_user/project" \
+            -u curl_user \
+            "$(docker build . -q --target stage-dev --file Dockerfile)" \
+            bats --tap test
+
           docker build . $BUILD_OPTS
 
-          [ "$ACTIONS_STEP_DEBUG" != "true" ] || XTRACE=1
-
-          expected="$GITHUB_REPOSITORY"
-          resulet_file="$(mktemp)"
-          docker run --rm -e GITHUB_TOKEN -e XTRACE \
-            "$(docker build . -q $BUILD_OPTS)" \
-            -df "map(select(.full_name == \"$expected\"))" orgs/Kyash | tee "$resulet_file" ||
-            test $? -le 1
-          actual="$(< "$resulet_file" grep '^repository\b' | head -1 | cut -f3)"
-          test "$actual" = "$expected"
+          bats --tap test/integration.bats
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
