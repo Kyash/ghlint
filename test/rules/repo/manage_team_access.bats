@@ -24,7 +24,7 @@ setup() {
     >"$resources_dump"
 
   run rules::repo::manage_team_access analyze "$(cat "$configure_dump")" <"$resources_dump"
-  declare -p status output >&2
+  declare -p status output >&2 || :
   test "$status" -eq 1
   jq -ne --argjson output "$output" '$output | .signature == "rules::repo::manage_team_access"'
 }

@@ -20,10 +20,10 @@ def default_configure:
 
 def analyze:
   .pattern as $pattern |
-  .repository |
+  .resource | 
   { location: { url } } as $issue |
   ($pattern.branches // []) as $branches |
-  .branches | 
+  .branches // [] | 
   map(select(.name as $name | $branches | any(. == $name))) |
   map(
     if .protected then

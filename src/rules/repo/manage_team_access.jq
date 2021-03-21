@@ -19,7 +19,7 @@ def default_configure:
 
 def analyze:
   .pattern as $pattern |
-  .repository |
+  .resource |
   { location: { url } } as $issue |
   .teams // [] | map({ slug, permission }) |
   (

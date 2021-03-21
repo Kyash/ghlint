@@ -18,7 +18,7 @@ def default_configure:
 ;
 
 def analyze:
-  .repository |
+  .resource |
   if .readme then
     empty
   else
