@@ -28,7 +28,7 @@ ENTRYPOINT [ "githublint" ]
 FROM stage-1 as stage-dev
 USER root
 RUN \
-  apk add --no-cache openssh git vim coreutils bats ncurses && \
+  apk add --no-cache openssh git vim nodejs-npm ncurses && \
   ln -fs /usr/lib/libcurl.so.4.7.0 /usr/lib/libcurl.so.4 && \
   ln -fs /usr/lib/libcurl.so.4 /usr/lib/libcurl.so && \
   curl -sSfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b /usr/local/bin && \
@@ -42,4 +42,5 @@ RUN \
     mv "shellcheck-${scversion}/shellcheck" /usr/local/bin/ && \
     shellcheck --version && \
     cd && rm -Rf "$tmpdir" \
-  )
+  ) && \
+  npm i -g bats
