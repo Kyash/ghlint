@@ -2,9 +2,9 @@
 
 set -ue
 
-declare -r VERSION="${VERSION:-latest}"
-declare -r IMANGE="${IMANGE:-}"
-declare -r DOCKERFILE="${DOCKERFILE:-}"
+declare -r VERSION="${GITHUBLINT_VERSION:-latest}"
+declare -r IMANGE="${GITHUBLINT_IMANGE:-}"
+declare -r DOCKERFILE="${GITHUBLINT_DOCKERFILE:-}"
 declare -r BUILD_OPTS=(--target stage-prd --file "$DOCKERFILE")
 declare -r CONTAINER_NAME="githublint_$$"
 
