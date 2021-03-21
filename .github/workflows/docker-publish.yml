@@ -1,6 +1,7 @@
+---
 name: Docker
 
-on:
+"on":
   push:
     # Publish `main` as Docker `latest` image.
     branches:
@@ -15,7 +16,7 @@ on:
 
 env:
   IMAGE_NAME: githublint
-  BUILD_OPTS: --target stage-prd
+  BUILD_OPTS: --target stage-prd --file Dockerfile
 
 jobs:
   # Run tests.
@@ -28,17 +29,14 @@ jobs:
 
       - name: Run tests
         run: |
-          docker build . $BUILD_OPTS --file Dockerfile
+          docker build . $BUILD_OPTS
 
-          if [ "$ACTIONS_STEP_DEBUG" = "true" ]
-          then
-            XTRACE=1
-          fi
+          [ "$ACTIONS_STEP_DEBUG" != "true" ] || XTRACE=1
 
           expected="$GITHUB_REPOSITORY"
           resulet_file="$(mktemp)"
-          docker run --rm -e GITHUB_TOKEN -e XTRACE=$XTRACE \
-            "$(docker build . -q $BUILD_OPTS --file Dockerfile)" \
+          docker run --rm -e GITHUB_TOKEN -e XTRACE \
+            "$(docker build . -q $BUILD_OPTS \
             -df "map(select(.full_name == \"$expected\"))" orgs/Kyash | tee "$resulet_file" ||
             test $? -le 1
           actual="$(< "$resulet_file" grep '^repository\b' | head -1 | cut -f3)"
@@ -60,29 +58,29 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Build image
-        run: docker build . $BUILD_OPTS --file Dockerfile --tag $IMAGE_NAME
+        run: docker build . $BUILD_OPTS --tag "$IMAGE_NAME"
 
       - name: Log into registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+        run: echo "$GITHUB_TOKEN" | docker login docker.pkg.github.com -u "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push image
         run: |
-          IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME
-
           # Change all uppercase to lowercase
-          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          IMAGE_ID="docker.pkg.github.com/${GITHUB_REPOSITORY,,}/${IMAGE_NAME,,}"
 
           # Strip git ref prefix from version
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          VERSION="${GITHUB_REF##*/}"
 
           # Strip "v" prefix from tag name
-          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          [[ "${GITHUB_REF}" != "refs/tags/"* ]] || VERSION=${VERSION#v}
 
           # Use Docker `latest` tag convention
-          [ "$VERSION" == "main" ] && VERSION=latest
+          [ "$VERSION" != "main" ] || VERSION=latest
 
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
+          echo "IMAGE_ID=$IMAGE_ID"
+          echo "VERSION=$VERSION"
 
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          docker tag "$IMAGE_NAME" "$IMAGE_ID:$VERSION"
+          docker push "$IMAGE_ID:$VERSION"
