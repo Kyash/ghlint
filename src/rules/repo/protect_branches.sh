@@ -7,12 +7,12 @@ source "rules.sh"
 source "jq.sh"
 
 function rules::repo::protect_branches() {
-  test "${1:-}" = "describe" && {
-    rules::describe "Protect branches"
-    return
-  }
-
-  ! jq -e \
-    --argfile descriptor <("${FUNCNAME[0]}" describe) \
-    -f "${BASH_SOURCE[0]%.*}.jq"
+  local signature="${FUNCNAME[0]}"
+  local opts=( -f "${BASH_SOURCE[0]%.*}.jq" --args "${signature}" "$@" )
+  if [ "${1}" = "describe" ]
+  then
+    jq -n "${opts[@]}"
+  else
+    ! jq -e "${opts[@]}"
+  fi
 }
