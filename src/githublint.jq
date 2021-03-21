@@ -32,7 +32,7 @@ def analyze(process; default_configure; $descriptor):
   (run_control($descriptor.signature | split("::"))) // default_configure |
   .patterns // [] |
   map(select(
-    .filter // {} | to_entries | map(.value as $regex | $repository[.key] | test($regex)) | all
+    .filter // {} | to_entries | map(.value as $regex | $repository[.key] // "" | test($regex)) | all
   )) |
   map({ $repository, pattern: . } | process | new_issue($descriptor)) | .[]
 ;

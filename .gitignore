@@ -3,4 +3,4 @@
 *.tsv
 .vscode/
 .curlrc
-.githublintrc.json
+/.githublintrc.json

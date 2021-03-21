@@ -155,13 +155,16 @@ function main() {
     github::configure_curlrc
   } > "$CURLRC"
 
+  local rc_file
+  rc_file="$(path::absolutisation "$RC_FILE")"
+
   cd "$(mktemp -d)"
 
   http::clean_cache &
 
-  if [ -f "$RC_FILE" ]
+  if [ -f "$rc_file" ]
   then
-    cat < "$RC_FILE"
+    cat < "$rc_file"
   else
     echo '{}'
   fi > ".githublintrc.json"
@@ -194,7 +197,7 @@ function main() {
       jq -r '.rules | map(.signature) | .[] | select(test("^rules::org::"))' < "$rules_dump" | while read -r func
       do
         logging::debug 'Analysing %s about %s ...' "$ORG" "$func"
-        "$func" analyze "$ORG" < "$org_dump" || warn '%s fail %s rule.' "$ORG" "$func"
+        "$func" analyze < "$org_dump" || warn '%s fail %s rule.' "$ORG" "$func"
       done | jq -sc '{ results: . }' > "$results_dump"
     }
     {
@@ -240,7 +243,7 @@ function main() {
             jq -r '.rules | map(.signature) | .[] | select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
             do
               logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
-              "$func" analyze "$full_name" < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
+              "$func" analyze < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
             done | jq -sc '{results:.}' > "$results_dump"
           }
 

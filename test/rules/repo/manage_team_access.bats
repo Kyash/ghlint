@@ -3,6 +3,7 @@
 setup() {
   PATH="$BATS_TEST_DIRNAME/../../../src:$PATH"
   load "../../../src/rules/repo/manage_team_access.sh"
+  cd "$(mktemp -d)"
 }
 
 @test "rules::repo::manage_team_access describe" {
@@ -25,5 +26,5 @@ setup() {
   run rules::repo::manage_team_access analyze "$(cat "$configure_dump")" <"$resources_dump"
   declare -p status output >&2
   test "$status" -eq 1
-  jq -ne --argjson output "$output" '$output | debug | .signature == "rules::repo::manage_team_access"'
+  jq -ne --argjson output "$output" '$output | .signature == "rules::repo::manage_team_access"'
 }
