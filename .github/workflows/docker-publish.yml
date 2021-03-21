@@ -27,6 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - run: npm install -g bats
+
       - name: Run tests
         run: |
           docker run --rm -e GITHUB_TOKEN \
