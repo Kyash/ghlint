@@ -30,23 +30,28 @@ function path::realize() {
   fi
 }
 
-SCRIPT_FULL_PATH="$(path::absolutisation "$(path::realize "${BASH_SOURCE[0]}")")"
-LIB_DIR="$(dirname "$SCRIPT_FULL_PATH")"
-PATH="$LIB_DIR:$PATH"
-declare -r LIB_DIR
-# shellcheck disable=SC2034
-declare -r JQ_LIB_DIR="$LIB_DIR"
-# shellcheck source=./lib/github.sh
+SHELL_SOURCE="$(path::absolutisation "$(path::realize "${BASH_SOURCE[0]}")")"
+declare -r SHELL_SOURCE
+PATH="$(dirname "$SHELL_SOURCE"):$PATH"
+# shellcheck source=./github.sh
 source "github.sh"
-# shellcheck source=./lib/http.sh
+# shellcheck source=./http.sh
 source "http.sh"
-# shellcheck source=./lib/json_seq.sh
+# shellcheck source=./json_seq.sh
 source "json_seq.sh"
-# shellcheck source=./lib/logging.sh
+# shellcheck source=./logging.sh
 source "logging.sh"
+# shellcheck source=./rules.sh
+source "reporter.sh"
+# shellcheck source=./reporter.sh
+source "rules.sh"
+
 {
   sources="$(mktemp)"
-  find "$LIB_DIR" -path "$LIB_DIR/reporter/*.sh" -o -path "$LIB_DIR/rules/*.sh" | while read -r file
+  {
+    reporter::sources
+    rules::sources
+  } | while read -r file
   do
     echo source "$file"
   done > "$sources"

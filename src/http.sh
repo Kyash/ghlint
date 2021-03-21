@@ -1,11 +1,11 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=./lib/functions.sh
+# shellcheck source=./functions.sh
 source "functions.sh"
-# shellcheck source=./lib/jq.sh
+# shellcheck source=./jq.sh
 source "jq.sh"
-# shellcheck source=./lib/logging.sh
+# shellcheck source=./logging.sh
 source "logging.sh"
 
 function http::configure_curlrc() {

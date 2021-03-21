@@ -3,4 +3,5 @@
 
 shopt -s expand_aliases
 
-alias jq='jq -L"$JQ_LIB_DIR" -c'
+# shellcheck disable=SC2139
+alias jq='jq -L"'"$(dirname "${BASH_SOURCE[0]}")"'" -c'

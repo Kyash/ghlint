@@ -1,13 +1,13 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=./lib/rules/functions.sh
-source "$(dirname "${BASH_SOURCE[0]}")/../../functions.sh"
-# shellcheck source=./lib/http.sh
+# shellcheck source=../../rules.sh
+source "rules.sh"
+# shellcheck source=./http.sh
 source "http.sh"
-# shellcheck source=./lib/jq.sh
+# shellcheck source=./jq.sh
 source "jq.sh"
-# shellcheck source=./lib/github.sh
+# shellcheck source=./github.sh
 source "github.sh"
 
 function rules::repo::readme_file_exists() {

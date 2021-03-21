@@ -1,9 +1,9 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=./lib/rules/functions.sh
-source "$(dirname "${BASH_SOURCE[0]}")/../../functions.sh"
-# shellcheck source=./lib/jq.sh
+# shellcheck source=../../rules.sh
+source "rules.sh"
+# shellcheck source=./jq.sh
 source "jq.sh"
 
 function rules::repo::codeowners_file_exists() {

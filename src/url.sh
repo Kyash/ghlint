@@ -3,5 +3,5 @@
 
 # shellcheck disable=SC2120
 function url::parse() {
-  node "$LIB_DIR/parse_url.js" "$@"
+  node "${BASH_SOURCE[0]%.*}/${FUNCNAME[0]##*::}.js" "$@"
 }

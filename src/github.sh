@@ -1,15 +1,15 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=./lib/functions.sh
+# shellcheck source=./functions.sh
 source "functions.sh"
-# shellcheck source=./lib/http.sh
+# shellcheck source=./http.sh
 source "http.sh"
-# shellcheck source=./lib/jq.sh
+# shellcheck source=./jq.sh
 source "jq.sh"
-# shellcheck source=./lib/logging.sh
+# shellcheck source=./logging.sh
 source "logging.sh"
-# shellcheck source=./lib/url.sh
+# shellcheck source=./url.sh
 source "url.sh"
 
 function github::configure_curlrc() {
@@ -149,7 +149,7 @@ function github::fetch_contents() {
 }
 
 function github::parse_codeowners() {
-  jq -sR -f "$LIB_DIR/${FUNCNAME//:://}.jq"
+  jq -sR -f "${BASH_SOURCE[0]%.*}/${FUNCNAME[0]##*::}.jq"
 }
 
 function github::fetch_codeowners() {
