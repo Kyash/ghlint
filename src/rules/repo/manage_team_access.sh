@@ -1,9 +1,9 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=../../rules.sh
+# shellcheck source=./src/rules.sh
 source "rules.sh"
-# shellcheck source=./jq.sh
+# shellcheck source=./src/jq.sh
 source "jq.sh"
 
 function rules::repo::manage_team_access() {

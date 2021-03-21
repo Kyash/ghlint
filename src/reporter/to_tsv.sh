@@ -1,7 +1,7 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=./jq.sh
+# shellcheck source=./src/jq.sh
 source "jq.sh"
 
 function reporter::to_tsv() {

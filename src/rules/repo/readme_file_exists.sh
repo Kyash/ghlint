@@ -1,13 +1,13 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=../../rules.sh
+# shellcheck source=./src/rules.sh
 source "rules.sh"
-# shellcheck source=./http.sh
+# shellcheck source=./src//http.sh
 source "http.sh"
-# shellcheck source=./jq.sh
+# shellcheck source=./src/jq.sh
 source "jq.sh"
-# shellcheck source=./github.sh
+# shellcheck source=./src/github.sh
 source "github.sh"
 
 function rules::repo::readme_file_exists() {

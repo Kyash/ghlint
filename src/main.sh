@@ -33,17 +33,17 @@ function path::realize() {
 SHELL_SOURCE="$(path::absolutisation "$(path::realize "${BASH_SOURCE[0]}")")"
 declare -r SHELL_SOURCE
 PATH="$(dirname "$SHELL_SOURCE"):$PATH"
-# shellcheck source=./github.sh
+# shellcheck source=./src/github.sh
 source "github.sh"
-# shellcheck source=./http.sh
+# shellcheck source=./src/http.sh
 source "http.sh"
-# shellcheck source=./json_seq.sh
+# shellcheck source=./src/json_seq.sh
 source "json_seq.sh"
-# shellcheck source=./logging.sh
+# shellcheck source=./src/logging.sh
 source "logging.sh"
-# shellcheck source=./rules.sh
+# shellcheck source=./src/rules.sh
 source "reporter.sh"
-# shellcheck source=./reporter.sh
+# shellcheck source=./src/reporter.sh
 source "rules.sh"
 
 {
