@@ -4,12 +4,12 @@ set -ue
 
 declare -r VERSION="${VERSION:-latest}"
 declare -r IMANGE="${IMANGE:-}"
-declare -r DOCKERFILE="${DOCKERFILE:-Dockerfile}"
+declare -r DOCKERFILE="${DOCKERFILE:-}"
 declare -r BUILD_OPTS=(--target stage-prd --file "$DOCKERFILE")
 declare -r CONTAINER_NAME="githublint_$$"
 
 function finally () {
-  command -v docker /dev/null || return
+  command -v docker >/dev/null || return
   docker ps -qf "name=$CONTAINER_NAME" | while IFS= read -r container_id
   do
     docker stop "$container_id"
