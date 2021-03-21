@@ -60,7 +60,7 @@ jobs:
       - name: Build image
         run: |
           VERSION=''
-          [[ "${GITHUB_REF}" != "refs/tags/v"* ]] || VERSION="${GITHUB_REF##*/}"
+          [[ "${GITHUB_REF}" != "refs/tags/v"* ]] || VERSION="${GITHUB_REF##*/v}"
 
           docker build . $BUILD_OPTS --tag "$IMAGE_NAME" --build-arg VERSION="$VERSION"
 
