@@ -36,7 +36,7 @@ jobs:
             -w "/home/curl_user/project" \
             -u curl_user \
             "$(docker build . -q --target stage-dev --file Dockerfile)" \
-            bats --tap test
+            bats -r --tap test
 
           docker build . $BUILD_OPTS
 
