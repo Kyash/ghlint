@@ -60,7 +60,7 @@ jobs:
       - name: Build image
         run: |
           VERSION=''
-          if [[ "${GITHUB_REF}" != "refs/tags/v"* ]]
+          if [[ "${GITHUB_REF}" = "refs/tags/v"* ]]
           then
             VERSION="${GITHUB_REF##*/v}"
           fi

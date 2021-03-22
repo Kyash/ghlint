@@ -19,7 +19,7 @@ ARG CREATED
 ARG VERSION
 ARG REVISION
 LABEL \
-  org.opencontainers.image.created=${CREATED}} \
+  org.opencontainers.image.created=${CREATED} \
   org.opencontainers.image.authors= \
   org.opencontainers.image.url= \
   org.opencontainers.image.documentation= \
