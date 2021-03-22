@@ -22,16 +22,12 @@
     const last = lines.pop();
     if (last) lines.push(last);
     return lines;
-  })(process.argv.slice(2)).then(values => values.map(value => {
-    try {
-      return new URL(value);
-    } catch (error) {
-      console.error(error.message);
-      process.exit(1);
-    }
-  }).forEach(url => {
+  })(process.argv.slice(2)).then(values => values.map(value => new URL(value)).forEach(url => {
     process.stdout.write('\x1e');
     process.stdout.write(JSON.stringify(url));
     process.stdout.write('\n');
-  }));
+  })).catch(error => {
+    console.error(error.message);
+    process.exit(1);
+  });
 })();
