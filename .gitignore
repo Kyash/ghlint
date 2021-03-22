@@ -3,4 +3,5 @@
 *.tsv
 .vscode/
 .curlrc
+.dccache
 /.githublintrc.json
