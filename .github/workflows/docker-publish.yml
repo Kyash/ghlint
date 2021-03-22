@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-    - name: Build image
+      - name: Build image
         run: |
           VERSION=''
           if [[ "${GITHUB_REF}" != "refs/tags/v"* ]]
