@@ -43,7 +43,6 @@ jobs:
           bats --tap test/integration.bats
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACTIONS_STEP_DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
 
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
