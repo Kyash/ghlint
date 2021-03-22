@@ -196,7 +196,7 @@ function main() {
       jq -r '.rules | map(.signature) | .[] | select(test("^rules::org::"))' < "$rules_dump" | while read -r func
       do
         logging::debug 'Analysing %s about %s ...' "$org" "$func"
-        "$func" analyze < "$org_dump" || warn '%s fail %s rule.' "$ORG" "$func"
+        "$func" analyze < "$org_dump" || warn '%s fail %s rule.' "$org" "$func"
       done | jq -sc '{ results: . }' > "$results_dump"
     }
     {
