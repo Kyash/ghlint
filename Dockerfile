@@ -15,14 +15,25 @@ FROM stage-1 as stage-deply
 COPY src /usr/local/lib/githublint
 
 FROM stage-deply as stage-prd
+ARG CREATED
 ARG VERSION
+ARG REVISION
 LABEL \
+  org.opencontainers.image.created=${CREATED}} \
+  org.opencontainers.image.authors= \
+  org.opencontainers.image.url= \
+  org.opencontainers.image.documentation= \
   org.opencontainers.image.source=https://github.com/kyash/githublint \
+  org.opencontainers.image.version=${VERSION} \
+  org.opencontainers.image.revision=${REVISION} \
+  org.opencontainers.image.vendor="Kyash Inc." \
+  org.opencontainers.image.licenses= \
+  org.opencontainers.image.title="githublint" \
+  org.opencontainers.image.description="Find problems in your GitHub settings." \
   Maintainer= \
   Name= \
   Version= \
-  docker.cmd= \
-  version=${VERSION}
+  docker.cmd=
 ENTRYPOINT [ "githublint" ]
 
 FROM stage-1 as stage-dev

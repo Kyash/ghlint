@@ -57,12 +57,18 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Build image
+    - name: Build image
         run: |
           VERSION=''
-          [[ "${GITHUB_REF}" != "refs/tags/v"* ]] || VERSION="${GITHUB_REF##*/v}"
+          if [[ "${GITHUB_REF}" != "refs/tags/v"* ]]
+          then
+            VERSION="${GITHUB_REF##*/v}"
+          fi
 
-          docker build . $BUILD_OPTS --tag "$IMAGE_NAME" --build-arg VERSION="$VERSION"
+          docker build . $BUILD_OPTS --tag "$IMAGE_NAME" \
+            --build-arg CREATED="$(date -Iseconds)" \
+            --build-arg VERSION="$VERSION" \
+            --build-arg REVISION="$(git rev-parse HEAD)"
 
       - name: Log into registry
         run: echo "$GITHUB_TOKEN" | docker login docker.pkg.github.com -u "$GITHUB_ACTOR" --password-stdin
