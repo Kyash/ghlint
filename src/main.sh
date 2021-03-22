@@ -144,11 +144,6 @@ function main() {
 
   test $# -eq 1 || { usage ; exit 1; }
 
-  declare -r SLUG="$1"
-  local org
-  org="$(echo "$SLUG" | grep '^orgs/' || : | sed -e 's/^orgs\///')"
-  declare -r ORG="$org"
-
   CURLRC="$(mktemp)"
   {
     http::configure_curlrc "$CURL_OPTS" "$(test $DEBUG -ne 0 && echo '-S')"
@@ -177,26 +172,30 @@ function main() {
   done | jq -sc '{rules:.}' > "$rules_dump"
 
   {
+    local slug="$1"
+    local org
+    org="$(echo "$slug" | grep '^orgs/' || : | sed -e 's/^orgs\///')"
+
     local lock_file
     lock_file="$(mktemp)"
-    logging::info 'Fetching %s ...' "$SLUG"
+    logging::info 'Fetching %s ...' "$slug"
     local org_dump
     org_dump="$(mktemp)"
     local resource_name
-    if [ -n "$ORG" ]
+    if [ -n "$org" ]
     then
       resource_name='organizations'
     else
       resource_name='users'
     fi
-    github::fetch "${GITHUB_API_ORIGIN}/$SLUG" |
+    github::fetch "${GITHUB_API_ORIGIN}/$slug" |
       jq -c --arg resource_name "$resource_name" '{ resources: { ($resource_name): [.] } }' > "$org_dump"
     local results_dump
     results_dump="$(mktemp)"
     {
       jq -r '.rules | map(.signature) | .[] | select(test("^rules::org::"))' < "$rules_dump" | while read -r func
       do
-        logging::debug 'Analysing %s about %s ...' "$ORG" "$func"
+        logging::debug 'Analysing %s about %s ...' "$org" "$func"
         "$func" analyze < "$org_dump" || warn '%s fail %s rule.' "$ORG" "$func"
       done | jq -sc '{ results: . }' > "$results_dump"
     }
@@ -211,9 +210,9 @@ function main() {
 
     local num_of_repos
     num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name] | first | .public_repos + .total_private_repos' "$org_dump")"
-    logging::info '%s has %d repositories.' "$SLUG" "$num_of_repos"
-    logging::info 'Fetching %s repositories ...' "$SLUG"
-    github::list "${GITHUB_API_ORIGIN}/${SLUG}/repos" -G -d 'per_page=100' | jq -c "${REPO_FILTER}" | jq -c '(. // [])[]' | {
+    logging::info '%s has %d repositories.' "$slug" "$num_of_repos"
+    logging::info 'Fetching %s repositories ...' "$slug"
+    github::list "${GITHUB_API_ORIGIN}/${slug}/repos" -G -d 'per_page=100' | jq -c "${REPO_FILTER}" | jq -c '(. // [])[]' | {
       local count=0
       while IFS= read -r repo
       do

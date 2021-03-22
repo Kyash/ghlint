@@ -3,7 +3,8 @@ import "githublint" as lint;
 (
   if .resources.repositories
   then
-    .resources.repositories|first|
+    .resources.repositories | first |
+    .owner.login as $org |
     [
       "repository",
       .id,
@@ -24,7 +25,7 @@ import "githublint" as lint;
     ]
   elif .resources.organizations
   then
-    .resources.organizations|first|
+    .resources.organizations| first |
     [
       "organization",
       .id,
@@ -45,7 +46,7 @@ import "githublint" as lint;
     ]
   elif .resources.users
   then
-    .resources.users|first|
+    .resources.users| first |
     [
       "user",
       .id,

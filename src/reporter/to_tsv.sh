@@ -5,7 +5,6 @@
 source "jq.sh"
 
 function reporter::to_tsv() {
-  local org="$ORG"
   local rules_dump="$1"
 
   local fields=(
@@ -29,7 +28,6 @@ function reporter::to_tsv() {
   jq -r --args '$ARGS.positional + (.rules | map(.signature)) | @tsv' "${fields[@]}" < "$rules_dump"
 
   jq -r \
-    --arg org "$org" \
     --argfile rules "$rules_dump" \
     -f "${BASH_SOURCE[0]%.*}.jq"
 }
