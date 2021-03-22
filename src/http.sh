@@ -8,12 +8,46 @@ source "jq.sh"
 # shellcheck source=./src/logging.sh
 source "logging.sh"
 
-function http::configure_curlrc() {
-  echo "$@"
+declare CURL_OPTS=${CURL_OPTS:--s}
+
+function http::mkcache() {
+  local cache_dir
+  cache_dir="${1:-$(mktemp -d)}/cache"
+  mkdir -p "$cache_dir" && echo "$cache_dir"
+}
+
+declare -p HTTP_CACHE_DIR &>/dev/null || {
+  declare HTTP_CACHE_DIR
+  HTTP_CACHE_DIR="$(http::mkcache '')"
+  declare HTTP_CACHE_INDEX_FILE="$HTTP_CACHE_DIR/index.txt"
+  touch "$HTTP_CACHE_INDEX_FILE"
+}
+
+function http::configure_curl() {
+  {
+    [ "${LOG_LEVEL:-0}" -lt 7 ] || echo '-S'
+    cat
+  } | tee "$CURLRC_FILE" |
+  if [ "${LOG_LEVEL:-0}" -gt 7 ]
+  then
+    (
+      set +x
+      while IFS= read -r line
+      do
+        LOG_ASYNC='' logging::trace '%s' "$line"
+      done
+    )
+  fi
+}
+
+declare -p CURLRC_FILE &>/dev/null || {
+  declare CURLRC_FILE=''
+  CURLRC_FILE="$(mktemp)"
+  http::configure_curl </dev/null
 }
 
 function http::_request() {
-  curl -q -K "$CURLRC" "$@"
+  curl -q -K "$CURLRC_FILE" "${CURL_OPTS[@]}" "$@"
 }
 
 function http::request() {
@@ -51,13 +85,12 @@ function http::request() {
     } 3>&1 1>&2 | tee "$response_dump"
   ) || exit_status="$?"
 
-  if [ "${XTRACE:-0}" -ne 0 ]
-  then
+  [ "${LOG_LEVEL:-0}" -lt 8 ] || {
     declare -p exit_status response_dump header_dump stat_dump args callback | while IFS= read -r line
     do
       LOG_ASYNC='' logging::trace '%s' "$line"
     done
-  fi
+  }
 
   local functions=(
     http::callback_store_cache
@@ -78,9 +111,9 @@ function http::clean_cache() {
     jq -Rr 'import "http" as http; http::filter_up_to_date_cache_index(http::parse_cache_index; ."last-modified")' \
       >"$new_cache_index_file" 2>"$outdated_files"
     flock -x 6
-    cat <"$new_cache_index_file" >"$CACHE_INDEX_FILE"
+    cat <"$new_cache_index_file" >"$HTTP_CACHE_INDEX_FILE"
     logging::debug '%s' "Updated cache index file."
-  } 6>>"$CACHE_INDEX_FILE" <"$CACHE_INDEX_FILE"
+  } 6>>"$HTTP_CACHE_INDEX_FILE" <"$HTTP_CACHE_INDEX_FILE"
 
   jq -r < "$outdated_files" | {
     local count=0
@@ -124,7 +157,7 @@ function http::callback_respond_from_cache() {
           flock -s 6
           http::find_cache "$url_effective" | http::respond_from_cache &&
             logging::debug 'Respond from the cache instead of %s' "$url_effective"
-        } 6>>"$CACHE_INDEX_FILE" <"$CACHE_INDEX_FILE" || return 24
+        } 6>>"$HTTP_CACHE_INDEX_FILE" <"$HTTP_CACHE_INDEX_FILE" || return 24
       fi
     done
   }
@@ -229,16 +262,17 @@ function http::callback_store_cache() {
             cache_filename="$(echo "$entry" | crypto::hash)"
             local index
             index="$(echo "$url_effective" | crypto::hash)"
-            local cache_file="$CACHE_DIR/$cache_filename"
+            local cache_file="$HTTP_CACHE_DIR/$cache_filename"
             {
               flock 6
               if [ ! -e "$cache_file" ]
               then
                 touch "$cache_file"
                 stream::slice "$total_size_body" "$size_body" < "$response_dump" > "$cache_file"
-                printf '%s\t%s\t%s\t%s\t%s\n' "$index" "$entry" "$expires" "$date" "$cache_file" >>"$CACHE_INDEX_FILE"
+                printf '%s\t%s\t%s\t%s\t%s\n' "$index" "$entry" "$expires" "$date" "$cache_file" \
+                  >>"$HTTP_CACHE_INDEX_FILE"
               fi
-            } 6>>"$CACHE_INDEX_FILE"
+            } 6>>"$HTTP_CACHE_INDEX_FILE"
           }
         }
       fi
@@ -250,8 +284,7 @@ function http::callback_store_cache() {
       total_size_body=$(( total_size_body + size_body ))
     done
 
-    if [ "${XTRACE:-0}" -ne 0 ]
-    then
+    [ "${LOG_LEVEL:-0}" -lt 8 ] || {
       local size_response_dump
       size_response_dump="$(wc -c < "$response_dump")"
       local size_header_dump
@@ -260,7 +293,7 @@ function http::callback_store_cache() {
         'total size (download): %d = %d' \
         "$(( total_size_header + total_size_body ))" \
         "$(( size_response_dump + size_header_dump ))"
-    fi
+    }
   }
   return "$exit_status"
 }

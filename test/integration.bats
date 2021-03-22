@@ -5,7 +5,7 @@
 
   expected="${GITHUB_REPOSITORY:-Kyash/githublint}"
   resulet_file="$(mktemp)"
-  { docker run --rm -e GITHUB_TOKEN -e XTRACE \
+  { docker run --rm -e GITHUB_TOKEN -e GITHUBLINT_XTRACE \
     "$(docker build . -q --target stage-prd --file Dockerfile)" \
     -df "map(select(.full_name == \"$expected\"))" orgs/Kyash | tee "$resulet_file"; } ||
     test $? -le 1

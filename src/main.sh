@@ -2,9 +2,6 @@
 
 set -ueo pipefail
 
-declare LOG_LEVEL=${LOG_LEVEL:-6}
-declare LOG_ASYNC=${LOG_ASYNC:-true}
-
 function path::isabsolute() {
   test "${1:0:1}" = "/"
 }
@@ -47,31 +44,17 @@ source "reporter.sh"
 source "rules.sh"
 
 {
-  sources="$(mktemp)"
+  sources_file="$(mktemp)"
   {
     reporter::sources
     rules::sources
   } | while read -r file
   do
     echo source "$file"
-  done > "$sources"
+  done > "$sources_file"
   # shellcheck source=/dev/null
-  source "$sources"
+  source "$sources_file"
 }
-
-declare -r CURL_OPTS=${CURL_OPTS:--s}
-declare -r GITHUB_API_ORIGIN=${GITHUB_API_ORIGIN:-https://api.github.com}
-declare DEBUG=${DEBUG:-0}
-declare XTRACE=${XTRACE:-0}
-declare REPO_FILTER=${REPO_FILTER:-.}
-declare REPORTER=${REPORTER:-tsv}
-declare EXTENSIONS="${EXTENSIONS:-stats.commit_activity,teams,codeowners,branches}"
-declare RC_FILE=${RC_FILE:-.githublintrc.json}
-declare CURLRC=
-declare PARALLELISM=${PARALLELISM:-100}
-declare PROFILE_DIR=
-declare CACHE_DIR=
-declare CACHE_INDEX_FILE=
 
 function usage() {
   {
@@ -86,47 +69,55 @@ function usage() {
 }
 
 function main() {
+  local debug="${GITHUBLINT_DEBUG:-0}"
+  local xtrace="${GITHUBLINT_XTRACE:-0}"
+  local repo_filter="${GITHUBLINT_REPO_FILTER:-.}"
+  local reporter="${GITHUBLINT_REPORTER:-tsv}"
+  local extensions="${GITHUBLINT_EXTENSIONS:-stats.commit_activity,teams,codeowners,branches}"
+  local rc_file="${GITHUBLINT_RC_FILE:-.githublintrc.json}"
+  local parallelism="${GITHUBLINT_PARALLELISM:-100}"
+
   trap finally EXIT
 
-  local profile_dir
-  profile_dir="$HOME/.githublint/$(echo "$GITHUB_TOKEN" | md5sum | cut -d' ' -f1)"
-  readonly PROFILE_DIR="$profile_dir"
-  readonly CACHE_DIR="$PROFILE_DIR/cache"
-  readonly CACHE_INDEX_FILE="$CACHE_DIR/index.txt"
-  mkdir -p "$CACHE_DIR"
-  touch "$CACHE_INDEX_FILE"
+  LOG_LEVEL="${GITHUBLINT_LOG_LEVEL:-6}"
+  # shellcheck disable=SC2034
+  LOG_ASYNC="${GITHUBLINT_LOG_ASYNC:-true}"
 
   while getopts "c:de:f:hp:r:x" opt
   do
     case "$opt" in
-      c) RC_FILE="$OPTARG" ;;
-      d) DEBUG=1 ;;
-      e) EXTENSIONS="$OPTARG" ;;
-      f) REPO_FILTER="$OPTARG" ;;
-      p) PARALLELISM="$OPTARG" ;;
-      r) REPORTER="$OPTARG" ;;
-      x) XTRACE=1 ;;
+      c) rc_file="$OPTARG" ;;
+      d) debug=1 ;;
+      e) extensions="$OPTARG" ;;
+      f) repo_filter="$OPTARG" ;;
+      p) parallelism="$OPTARG" ;;
+      r) reporter="$OPTARG" ;;
+      x) xtrace=1 ;;
       h) usage ; exit 0 ;;
       ?) usage ; exit 1 ;;
     esac
   done
   shift $((OPTIND - 1))
 
-  [ $DEBUG -eq 0 ] || {
-    LOG_LEVEL=7
+  [ "${debug:-0}" -eq 0 ] || {
+    [ "${LOG_LEVEL:-0}" -ge 7 ] || LOG_LEVEL=7
     set -E
     trap inspect ERR
-    ! [ -f "$RC_FILE" ] || {
-      printf 'Run-Control file was found. '
-      jq -jcM '.' "$RC_FILE"
-    } | logging::debug
   }
 
-  [ "${XTRACE:-0}" -eq 0 ] || {
-    LOG_LEVEL=9
+  [ "${xtrace:-0}" -eq 0 ] || {
+    [ "${LOG_LEVEL:-0}" -ge 9 ] || LOG_LEVEL=9
     BASH_XTRACEFD=4
     PS4='+ ${BASH_SOURCE}:${LINENO}${FUNCNAME:+ - ${FUNCNAME}()} | '
     set -x
+  }
+
+  local profile_dir
+  profile_dir="$HOME/.githublint/$(echo "$GITHUB_TOKEN" | md5sum | cut -d' ' -f1)"
+  declare -r PROFILE_DIR="$profile_dir"
+  http::mkcache "$PROFILE_DIR" >/dev/null
+
+  [ "${LOG_LEVEL:-0}" -lt 8 ] || {
     {
       declare -p
       bash --version
@@ -144,18 +135,10 @@ function main() {
 
   test $# -eq 1 || { usage ; exit 1; }
 
-  CURLRC="$(mktemp)"
-  {
-    http::configure_curlrc "$CURL_OPTS" "$(test $DEBUG -ne 0 && echo '-S')"
-    github::configure_curlrc
-  } > "$CURLRC"
-
   local rc_file
-  rc_file="$(path::absolutisation "$RC_FILE")"
+  rc_file="$(path::absolutisation "$rc_file")"
 
   cd "$(mktemp -d)"
-
-  http::clean_cache &
 
   if [ -f "$rc_file" ]
   then
@@ -163,6 +146,13 @@ function main() {
   else
     echo '{}'
   fi > ".githublintrc.json"
+
+  [ "${debug:-0}" -eq 0 ] || {
+    printf 'Run-Control file was found. '
+    jq -njM 'import ".githublintrc" as $rc; $rc'
+  } | logging::debug
+
+  http::clean_cache &
 
   local rules_dump
   rules_dump="$(mktemp)"
@@ -212,13 +202,13 @@ function main() {
     num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name] | first | .public_repos + .total_private_repos' "$org_dump")"
     logging::info '%s has %d repositories.' "$slug" "$num_of_repos"
     logging::info 'Fetching %s repositories ...' "$slug"
-    github::list "${GITHUB_API_ORIGIN}/${slug}/repos" -G -d 'per_page=100' | jq -c "${REPO_FILTER}" | jq -c '(. // [])[]' | {
+    github::list "${GITHUB_API_ORIGIN}/${slug}/repos" -G -d 'per_page=100' | jq -c "${repo_filter}" | jq -c '(. // [])[]' | {
       local count=0
       while IFS= read -r repo
       do
         local progress_rate=$(( ++count * 100 / num_of_repos ))
         logging::debug 'Running %d jobs ...' "$(process::count_running_jobs)"
-        while [ "$PARALLELISM" -gt 0 ] && [ "$(process::count_running_jobs)" -gt "$PARALLELISM" ]
+        while [ "$parallelism" -gt 0 ] && [ "$(process::count_running_jobs)" -gt "$parallelism" ]
         do
           logging::debug 'Wait (running %d jobs).' "$(process::count_running_jobs)"
           sleep .5
@@ -232,7 +222,8 @@ function main() {
           repo_dump="$(mktemp)"
           {
             logging::info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
-            github::fetch_repository "$repo" | jq -c '{ resources: { repositories: [.] } }' > "$repo_dump"
+            github::fetch_repository "$repo" "$extensions" |
+              jq -c '{ resources: { repositories: [.] } }' > "$repo_dump"
           }
 
           local results_dump
@@ -251,7 +242,7 @@ function main() {
             json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
           } 6>> "$lock_file"
         } &
-        if [ "$PARALLELISM" -lt 1 ]
+        if [ "$parallelism" -lt 1 ]
         then
           wait "$!"
         fi
@@ -259,7 +250,7 @@ function main() {
       wait
       LOG_ASYNC='' logging::info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
     }
-  } | "reporter::to_$REPORTER" "$rules_dump"
+  } | "reporter::to_$reporter" "$rules_dump"
 }
 
 function inspect() {
@@ -270,7 +261,7 @@ function inspect() {
 
 function finally () {
   LOG_ASYNC='' logging::debug 'command exited with status %d' $?
-  rm -f "$CURLRC"
+  rm -f "$CURLRC_FILE"
 }
 
 main "$@"

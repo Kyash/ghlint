@@ -12,12 +12,18 @@ source "logging.sh"
 # shellcheck source=./src/url.sh
 source "url.sh"
 
-function github::configure_curlrc() {
-  printf -- '-H "%s"\n' "Accept: application/vnd.github.v3+json, application/vnd.github.luke-cage-preview+json"
-  (
-    set +x
-    printf -- '-u "username:%s"\n' "$GITHUB_TOKEN"
-  )
+declare GITHUB_API_ORIGIN="${GITHUB_API_ORIGIN:-https://api.github.com}"
+
+function github::configure_curl() {
+  {
+    printf -- '-H "%s"\n' "Accept: application/vnd.github.v3+json, application/vnd.github.luke-cage-preview+json"
+    ( set +x; printf -- '-u "username:%s"\n' "$GITHUB_TOKEN" )
+  } | http::configure_curl
+}
+
+declare -p GITHUB_CURLRC_FILE &>/dev/null || {
+  declare GITHUB_CURLRC_FILE="$CURLRC_FILE"
+  github::configure_curl
 }
 
 function github::list() {
@@ -58,7 +64,7 @@ function github::fetch() {
   {
     flock -s 6
     http::find_cache "$url" || echo 'null'
-  } 6>>"$CACHE_INDEX_FILE" >"$cache_index_json" <"$CACHE_INDEX_FILE"
+  } 6>>"$HTTP_CACHE_INDEX_FILE" >"$cache_index_json" <"$HTTP_CACHE_INDEX_FILE"
 
   local filter2='import "http" as http; . // empty | http::filter_up_to_date_cache_index(.; .) | .file'
   IFS='' read -r cache_file < <(jq -r "$filter2" "$cache_index_json") || :
@@ -203,13 +209,14 @@ function github::fetch_teams() {
 
 function github::fetch_repository() {
   local repo="$1"
+  local extensions="$2"
   jq -nr --argjson repo "$repo" '$repo | [.full_name, .default_branch] | map(. // "") | .[]' | {
     IFS='' read -r full_name
     IFS='' read -r default_branch
 
     local job_pids=()
     local dumps=()
-    for extension in ${EXTENSIONS//,/$'\t'}
+    for extension in ${extensions//,/$'\t'}
     do
       [[ "$extension" = "repository" || "$extension" = "content" ]] && continue
       local funcname="github::fetch_${extension}"
