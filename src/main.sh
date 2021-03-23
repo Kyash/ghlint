@@ -188,7 +188,7 @@ function main() {
       while read -r func
       do
         logging::debug 'Analysing %s about %s ...' "$org" "$func"
-        "$func" analyze < "$org_dump" || warn '%s fail %s rule.' "$org" "$func"
+        "$func" analyze < "$org_dump" || logging::warn '%s fail %s rule.' "$org" "$func"
       done | jq -s '{ results: . }' > "$results_dump"
     {
       flock 6
