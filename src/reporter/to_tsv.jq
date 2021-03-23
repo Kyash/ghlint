@@ -25,7 +25,7 @@ import "githublint" as lint;
     ]
   elif .resources.organizations
   then
-    .resources.organizations| first |
+    .resources.organizations | first |
     [
       "organization",
       .id,
@@ -46,7 +46,7 @@ import "githublint" as lint;
     ]
   elif .resources.users
   then
-    .resources.users| first |
+    .resources.users | first |
     [
       "user",
       .id,
