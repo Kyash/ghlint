@@ -188,13 +188,13 @@ function github::fetch_branches() {
             github::fetch "$protection_url"
           else
             echo 'null'
-          fi | jq -c '{ protection: . }'
+          fi | jq '{ protection: . }'
         else
           echo '{}'
-        fi | jq -c --argjson branch "$branch" '$branch + .'
+        fi | jq --argjson branch "$branch" '$branch + .'
       } < <(jq -nr --argjson branch "$branch" '$branch | [.protected, .protection_url] | map(. // "") | .[]')
     done
-  } | jq -sc
+  } | jq -s
 }
 
 function github::fetch_stats.commit_activity() {
@@ -262,5 +262,5 @@ function github::fetch_organization() {
   local slug="$1"
   shift
   github::fetch "${GITHUB_API_ORIGIN}/$slug" "$@" |
-    jq -c --arg resource_name "${slug%/*}" '{ resources: { ($resource_name): [.] } }'
+    jq --arg resource_name "${slug%/*}" '{ resources: { ($resource_name): [.] } }'
 }

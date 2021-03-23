@@ -18,7 +18,7 @@ function path::absolutisation() {
 function path::realize() {
   local file="$1"
   [ -L "$file" ] || { echo "$file" && return 0; }
-  real_file="$(readlink "$file")"
+  real_file="$(readlink -f "$file")"
   if path::isabsolute "$real_file"
   then
     echo "$real_file"
@@ -36,6 +36,8 @@ source "github.sh"
 source "http.sh"
 # shellcheck source=./src/json_seq.sh
 source "json_seq.sh"
+# shellcheck source=./src/jq.sh
+source "jq.sh"
 # shellcheck source=./src/logging.sh
 source "logging.sh"
 # shellcheck source=./src/rules.sh
@@ -159,7 +161,7 @@ function main() {
   rules::list | while read -r signature
   do
     "$signature" describe
-  done | jq -sc '{rules:.}' > "$rules_dump"
+  done | jq -s '{ rules: . }' > "$rules_dump"
 
   {
     local slug="$1"
@@ -180,15 +182,11 @@ function main() {
       do
         logging::debug 'Analysing %s about %s ...' "$org" "$func"
         "$func" analyze < "$org_dump" || warn '%s fail %s rule.' "$org" "$func"
-      done | jq -sc '{ results: . }' > "$results_dump"
+      done | jq -s '{ results: . }' > "$results_dump"
     {
       flock 6
       json_seq::new "$org_dump" "$rules_dump" "$results_dump"
     } 6>> "$lock_file"
-
-    function process::count_running_jobs() {
-      jobs -pr | wc -l
-    }
 
     jq -r \
       --arg resource_name "$resource_name" \
@@ -198,7 +196,7 @@ function main() {
       do
         logging::info '%s has %d repositories.' "$slug" "$num_of_repos"
         logging::info 'Fetching %s repositories ...' "$slug"
-        github::list "$repos_url" -G -d 'per_page=100' | jq -c "${repo_filter}" | jq -c '(. // [])[]' | {
+        github::list "$repos_url" -G -d 'per_page=100' | jq "${repo_filter}" | jq '(. // [])[]' | {
           local count=0
           while IFS= read -r repo
           do
@@ -219,7 +217,7 @@ function main() {
               {
                 logging::info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
                 github::fetch_repository "$repo" "$extensions" |
-                  jq -c '{ resources: { repositories: [.] } }' > "$repo_dump"
+                  jq '{ resources: { repositories: [.] } }' > "$repo_dump"
               }
 
               local results_dump
@@ -230,7 +228,7 @@ function main() {
                 do
                   logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
                   "$func" analyze < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
-                done | jq -sc '{results:.}' > "$results_dump"
+                done | jq -s '{results:.}' > "$results_dump"
               }
 
               {

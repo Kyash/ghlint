@@ -196,7 +196,7 @@ function http::callback_sleep_when_rate_limit_is_exceeded() {
         total_size_header=$(( total_size_header + size_header ))
         total_size_body=$(( total_size_body + size_body ))
       done
-    } | jq -scr 'max // empty' | {
+    } | jq -sr 'max // empty' | {
       IFS= read -r sleep_time || :
       LOG_ASYNC='' logging::trace 'sleep time %d' "${sleep_time:-0}"
       if [ "${sleep_time:-0}" -gt 0 ]

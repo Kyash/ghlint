@@ -62,3 +62,7 @@ function stream::slice() {
 function crypto::hash() {
   md5sum | cut -d' ' -f1
 }
+
+function process::count_running_jobs() {
+  jobs -pr | wc -l
+}
