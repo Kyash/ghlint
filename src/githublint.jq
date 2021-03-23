@@ -27,8 +27,9 @@ def describe:
 ;
 
 def analyze(process; default_configure; $descriptor):
-  (run_control($descriptor.signature | split("::"))) as $configure |
-  ($configure.kind // "repositories") as $kind |
+  ($descriptor.signature | split("::")) as $signature_path |
+  (run_control($signature_path)) as $configure |
+  ({ repo: "repositories", org: "organizations" })[$signature_path[1]] as $kind |
   .resources[$kind] // [] | .[] |. as $resource |
   ($configure // default_configure).patterns // [] |
   map(select(
