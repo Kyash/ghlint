@@ -9,6 +9,10 @@ cd githublint
 install -m 755 ./bin/githublint /usr/local/bin
 ```
 
+## Prerequisites
+
+- Docker
+
 ## Usage
 
 Displayed by executing the following command:
@@ -20,12 +24,47 @@ githublint -h
 ### Example
 
 ```
-githublint orgs/Kyash
+githublint orgs/Kyash > results.tsv
 ```
 
-## Prerequisites
+## Configure rules
 
-- Docker
+Describe the rule settings in `.githublintrc.json`.
+
+- For example, describe `rules::repo::manage_team_access` settings in `.rules.repo.manage_team_access.patterns` element
+- Multiple settings can be described in `patterns` element
+- Use `filter` element to specify targets
+  - To exclude all targets from the rule, describe the pattern element as follows: `{ "filter": { "name": "^$" } }`
+- Other rule-specific settings can also be described.
+
+### Example
+
+If `Kyash` organization expects all repositories to have write permission from `engineer` team, then describe:
+
+```json
+{
+  "rules": {
+    "repo": {
+      "manage_team_access": {
+        "patterns": [
+          {
+            "filter": {
+              "full_name": "^Kyash/"
+            },
+            "allowlist": [
+              {
+                "slug": "engineer",
+                "permission": "push",
+                "strict": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
+```
 
 ## Development
 
@@ -35,6 +74,14 @@ Launch the development environment
 
 ```sh
 bash -i ./launch_dev_env.sh
+```
+
+### Testing
+
+Use [Bats-core](https://github.com/bats-core/bats-core) to run the test.
+
+```sh
+bats -r test
 ```
 
 ### Dependencies
