@@ -18,7 +18,7 @@ def describe:
       description: null,
       severity: "Low",
       confidence: "Low",
-      help: null,
+      help: "https://github.com/Kyash/githublint/wiki/\(.signature)",
       tags: []
     } + .
   else
