@@ -261,6 +261,10 @@ function github::fetch_repository() {
 function github::fetch_organization() {
   local slug="$1"
   shift
+
+  local resource_name="${slug%/*}"
+  [ "$resource_name" = 'users' ] || resource_name='organizations'
+
   github::fetch "${GITHUB_API_ORIGIN}/$slug" "$@" |
-    jq --arg resource_name "${slug%/*}" '{ resources: { ($resource_name): [.] } }'
+    jq --arg resource_name "$resource_name" '{ resources: { ($resource_name): [.] } }'
 }

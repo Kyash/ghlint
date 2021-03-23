@@ -165,7 +165,6 @@ function main() {
 
   {
     local slug="$1"
-    local resource_name="${slug%/*}"
     local org="${slug#*/}"
 
     local lock_file
@@ -189,8 +188,7 @@ function main() {
     } 6>> "$lock_file"
 
     jq -r \
-      --arg resource_name "$resource_name" \
-      '.resources[$resource_name] | (. // [])[] | [.repos_url, .public_repos + .total_private_repos] | @tsv' \
+      '.resources | .organizations + .users | (. // [])[] | [.repos_url, .public_repos + .total_private_repos] | @tsv' \
       <"$org_dump" |
       while IFS=$'\t' read -r repos_url num_of_repos
       do
