@@ -1,4 +1,7 @@
 # githublint
+
+[![Docker](https://github.com/Kyash/githublint/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Kyash/githublint/actions/workflows/docker-publish.yml)
+
 Find problems in your GitHub settings.
 
 ## Installation
