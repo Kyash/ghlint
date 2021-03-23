@@ -257,3 +257,10 @@ function github::fetch_repository() {
     return "$exit_status"
   }
 }
+
+function github::fetch_organization() {
+  local slug="$1"
+  shift
+  github::fetch "${GITHUB_API_ORIGIN}/$slug" "$@" |
+    jq -c --arg resource_name "${slug%/*}" '{ resources: { ($resource_name): [.] } }'
+}

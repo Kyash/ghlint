@@ -163,32 +163,24 @@ function main() {
 
   {
     local slug="$1"
-    local org
-    org="$(echo "$slug" | grep '^orgs/' || : | sed -e 's/^orgs\///')"
+    local resource_name="${slug%/*}"
+    local org="${slug#*/}"
 
     local lock_file
     lock_file="$(mktemp)"
+
     logging::info 'Fetching %s ...' "$slug"
     local org_dump
     org_dump="$(mktemp)"
-    local resource_name
-    if [ -n "$org" ]
-    then
-      resource_name='organizations'
-    else
-      resource_name='users'
-    fi
-    github::fetch "${GITHUB_API_ORIGIN}/$slug" |
-      jq -c --arg resource_name "$resource_name" '{ resources: { ($resource_name): [.] } }' > "$org_dump"
+    github::fetch_organization "$slug" > "$org_dump"
     local results_dump
     results_dump="$(mktemp)"
-    {
-      jq -r '.rules | map(.signature) | .[] | select(test("^rules::org::"))' < "$rules_dump" | while read -r func
+    jq -r '.rules | map(.signature) | .[] | select(test("^rules::org::"))' < "$rules_dump" |
+      while read -r func
       do
         logging::debug 'Analysing %s about %s ...' "$org" "$func"
         "$func" analyze < "$org_dump" || warn '%s fail %s rule.' "$org" "$func"
       done | jq -sc '{ results: . }' > "$results_dump"
-    }
     {
       flock 6
       json_seq::new "$org_dump" "$rules_dump" "$results_dump"
@@ -198,58 +190,63 @@ function main() {
       jobs -pr | wc -l
     }
 
-    local num_of_repos
-    num_of_repos="$(jq -r --arg resource_name "$resource_name" '.resources[$resource_name] | first | .public_repos + .total_private_repos' "$org_dump")"
-    logging::info '%s has %d repositories.' "$slug" "$num_of_repos"
-    logging::info 'Fetching %s repositories ...' "$slug"
-    github::list "${GITHUB_API_ORIGIN}/${slug}/repos" -G -d 'per_page=100' | jq -c "${repo_filter}" | jq -c '(. // [])[]' | {
-      local count=0
-      while IFS= read -r repo
+    jq -r \
+      --arg resource_name "$resource_name" \
+      '.resources[$resource_name] | (. // [])[] | [.repos_url, .public_repos + .total_private_repos] | @tsv' \
+      <"$org_dump" |
+      while IFS=$'\t' read -r repos_url num_of_repos
       do
-        local progress_rate=$(( ++count * 100 / num_of_repos ))
-        logging::debug 'Running %d jobs ...' "$(process::count_running_jobs)"
-        while [ "$parallelism" -gt 0 ] && [ "$(process::count_running_jobs)" -gt "$parallelism" ]
-        do
-          logging::debug 'Wait (running %d jobs).' "$(process::count_running_jobs)"
-          sleep .5
-          logging::debug 'Resume (running %d jobs).' "$(process::count_running_jobs)"
-        done
-        {
-          local full_name
-          full_name="$(echo "$repo" | jq -r '.full_name')"
-
-          local repo_dump
-          repo_dump="$(mktemp)"
-          {
-            logging::info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
-            github::fetch_repository "$repo" "$extensions" |
-              jq -c '{ resources: { repositories: [.] } }' > "$repo_dump"
-          }
-
-          local results_dump
-          results_dump="$(mktemp)"
-          {
-            logging::info '(%.0f%%) Analysing %s repository ...' "$progress_rate" "$full_name"
-            jq -r '.rules | map(.signature) | .[] | select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
+        logging::info '%s has %d repositories.' "$slug" "$num_of_repos"
+        logging::info 'Fetching %s repositories ...' "$slug"
+        github::list "$repos_url" -G -d 'per_page=100' | jq -c "${repo_filter}" | jq -c '(. // [])[]' | {
+          local count=0
+          while IFS= read -r repo
+          do
+            local progress_rate=$(( ++count * 100 / num_of_repos ))
+            logging::debug 'Running %d jobs ...' "$(process::count_running_jobs)"
+            while [ "$parallelism" -gt 0 ] && [ "$(process::count_running_jobs)" -gt "$parallelism" ]
             do
-              logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
-              "$func" analyze < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
-            done | jq -sc '{results:.}' > "$results_dump"
-          }
+              logging::debug 'Wait (running %d jobs).' "$(process::count_running_jobs)"
+              sleep .5
+              logging::debug 'Resume (running %d jobs).' "$(process::count_running_jobs)"
+            done
+            {
+              local full_name
+              full_name="$(echo "$repo" | jq -r '.full_name')"
 
-          {
-            flock 6
-            json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
-          } 6>> "$lock_file"
-        } &
-        if [ "$parallelism" -lt 1 ]
-        then
-          wait "$!"
-        fi
+              local repo_dump
+              repo_dump="$(mktemp)"
+              {
+                logging::info '(%.0f%%) Fetching %s repository ...' "$progress_rate" "$full_name"
+                github::fetch_repository "$repo" "$extensions" |
+                  jq -c '{ resources: { repositories: [.] } }' > "$repo_dump"
+              }
+
+              local results_dump
+              results_dump="$(mktemp)"
+              {
+                logging::info '(%.0f%%) Analysing %s repository ...' "$progress_rate" "$full_name"
+                jq -r '.rules | map(.signature) | .[] | select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
+                do
+                  logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
+                  "$func" analyze < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
+                done | jq -sc '{results:.}' > "$results_dump"
+              }
+
+              {
+                flock 6
+                json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
+              } 6>> "$lock_file"
+            } &
+            if [ "$parallelism" -lt 1 ]
+            then
+              wait "$!"
+            fi
+          done
+          wait
+          LOG_ASYNC='' logging::info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
+        }
       done
-      wait
-      LOG_ASYNC='' logging::info 'Fitched %d repositories (Skipped %d repositories).' "$count" $((num_of_repos - count))
-    }
   } | "reporter::to_$reporter" "$rules_dump"
 }
 
