@@ -30,6 +30,12 @@ githublint -h
 githublint orgs/Kyash > results.tsv
 ```
 
+## Exit status
+
+- `0`: There was no rule violation
+- `1`: One or more rule violations found
+- other: An unexpected error has occurred
+
 ## Configure rules
 
 Describe the rule settings in `.githublintrc.json`.
