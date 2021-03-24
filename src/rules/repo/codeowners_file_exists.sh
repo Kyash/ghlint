@@ -1,8 +1,6 @@
 #!/bin/false
 # shellcheck shell=bash
 
-# shellcheck source=./src/rules.sh
-source "rules.sh"
 # shellcheck source=./src/jq.sh
 source "jq.sh"
 
