@@ -9,7 +9,7 @@
   resulet_file="$(mktemp)"
   { docker run --rm -e GITHUB_TOKEN -e GITHUBLINT_XTRACE \
     "$(docker build . -q --target stage-prd --file Dockerfile)" \
-    -df "map(select(.full_name == \"$expected\"))" "orgs/$org" |
+    -df "select(.full_name == \"$expected\")" "orgs/$org" |
     tee "$resulet_file"
   } || test $? -le 1
   test "$(< "$resulet_file" grep -c '^organization\b')" -eq 1
