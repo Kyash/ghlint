@@ -28,7 +28,7 @@ def default_configure:
 
 def matches($standards):
   delpaths([ path(..) | select(contains(["url"])) ]) as $rules |
-  $standards | to_entries | all(.value as $value | $rules[.key] | contains($value))
+  $standards | to_entries | all(.value as $value | $rules[.key] | if . == null then false else contains($value) end)
 ;
 
 def analyze:
