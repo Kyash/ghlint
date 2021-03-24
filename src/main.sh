@@ -206,7 +206,8 @@ function main() {
         do
           logging::info '%s has %d repositories.' "$slug" "$num_of_repos"
           logging::info 'Fetching %s repositories ...' "$slug"
-          github::list "$repos_url" -G -d 'per_page=100' | jq "${repo_filter}" | jq '(. // [])[]' | {
+          github::list "$repos_url" -G -d 'per_page=100' -d 'sort=pushed' -d 'direction=desc' |
+            jq '(. // [])[]' | jq "${repo_filter}" | {
             local count=0
             local job_pids=()
             while IFS= read -r repo
