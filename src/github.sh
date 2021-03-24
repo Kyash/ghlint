@@ -16,7 +16,7 @@ declare GITHUB_API_ORIGIN="${GITHUB_API_ORIGIN:-https://api.github.com}"
 
 function github::configure_curl() {
   {
-    printf -- '-H "%s"\n' "Accept: application/vnd.github.v3+json, application/vnd.github.luke-cage-preview+json"
+    printf -- '-H "%s"\n' "Accept: application/vnd.github.v3+json"
     ( set +x; printf -- '-u "username:%s"\n' "$GITHUB_TOKEN" )
   } | http::configure_curl
 }
@@ -185,7 +185,8 @@ function github::fetch_branches() {
         then
           if [ -n "$protection_url" ]
           then
-            github::fetch "$protection_url"
+            github::fetch "$protection_url" \
+              -H 'Accept: application/vnd.github.luke-cage-preview+json'
           else
             echo 'null'
           fi | jq '{ protection: . }'
