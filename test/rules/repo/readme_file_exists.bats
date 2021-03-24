@@ -5,7 +5,7 @@ setup() {
   load "../../../src/rules/repo/readme_file_exists.sh"
   cd "$(mktemp -d)"
   function github::fetch() {
-    false
+    return 22
   }
 }
 
@@ -22,7 +22,7 @@ setup() {
 
   local resources_dump
   resources_dump="$(mktemp)"
-  jq -n '{ name: "githublint" }' |
+  jq -n '{ name: "githublint", url: "https://api.github.com/repos/Kyash/githublint" }' |
     jq '{ resources: { repositories: [.] } }' \
     >"$resources_dump"
 

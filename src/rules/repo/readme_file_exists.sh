@@ -20,7 +20,12 @@ function rules::repo::readme_file_exists() {
     tee "$resources_dump" | jq -r '.resources.repositories | map([(. | tojson), "\(.url)/readme"] | @tsv) | .[]' |
     while IFS=$'\t' read -r repo url
     do
-      { github::fetch "${url}" || { echo 'null' | http::default_response; } } |
+      {
+        github::fetch "${url}" || {
+          local exit_status="$?"
+          echo 'null' | http::default_response "$exit_status"
+        }
+      } |
         jq -s '[.[0], { readme: .[1] }] | add | { resources: { repositories: [.] } }' \
           <(echo "$repo") <(cat)
     done |
