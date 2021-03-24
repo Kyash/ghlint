@@ -23,8 +23,13 @@ function rules::repo::readme_file_exists() {
       { github::fetch "${url}" || { echo 'null' | http::default_response; } } |
         jq -s '[.[0], { readme: .[1] }] | add | { resources: { repositories: [.] } }' \
           <(echo "$repo") <(cat)
-    done | {
-      ! jq -e "${opts[@]}"
-    }
+    done |
+      if jq -e "${opts[@]}"
+      then
+        return 1
+      else
+        local exit_status="$?"
+        [ "$exit_status" -eq 4 ] || return "$exit_status";
+      fi
   fi
 }

@@ -188,8 +188,12 @@ function main() {
       while read -r func
       do
         logging::debug 'Analysing %s about %s ...' "$org" "$func"
-        "$func" analyze < "$org_dump" || logging::warn '%s fail %s rule.' "$org" "$func"
-      done | jq -s '{ results: . }' > "$results_dump"
+        "$func" analyze < "$org_dump" || {
+          local exit_status="$?"
+          [ "$exit_status" -eq 1 ] || return "$exit_status"
+          logging::warn '%s fail %s rule.' "$org" "$func"
+        }
+      done | jq -s 'map(select(.)) | { results: . }' > "$results_dump"
     {
       flock 6
       json_seq::new "$org_dump" "$rules_dump" "$results_dump"
@@ -231,8 +235,12 @@ function main() {
                 jq -r '.rules | map(.signature) | .[] | select(test("^rules::repo::"))' < "$rules_dump" | while read -r func
                 do
                   logging::debug 'Analysing %s repository about %s ...' "$full_name" "$func"
-                  "$func" analyze < "$repo_dump" || logging::warn '%s repository fail %s rule.' "$full_name" "$func"
-                done | jq -s '{results:.}' > "$results_dump"
+                  "$func" analyze < "$repo_dump" || {
+                    local exit_status="$?"
+                    [ "$exit_status" -eq 1 ] || return "$exit_status"
+                    logging::warn '%s repository fail %s rule.' "$full_name" "$func"
+                  }
+                done | jq -s 'map(select(.)) | { results: . }' > "$results_dump"
 
                 {
                   flock 6

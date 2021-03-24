@@ -35,5 +35,5 @@ def analyze(process; default_configure; $descriptor):
   map(select(
     .filter // {} | to_entries | map(.value as $regex | $resource[.key] // "" | test($regex)) | all
   )) |
-  map({ $resource, pattern: . } | process | new_issue($descriptor)) | .[]
+  map({ $resource, pattern: . } | process | new_issue($descriptor))[]
 ;

@@ -11,6 +11,12 @@ function rules::repo::codeowners_file_exists() {
   then
     jq -n "${opts[@]}"
   else
-    ! jq -e "${opts[@]}"
+    if jq -e "${opts[@]}"
+    then
+      return 1
+    else
+      local exit_status="$?"
+      [ "$exit_status" -eq 4 ] || return "$exit_status";
+    fi
   fi
 }
