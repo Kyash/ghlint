@@ -1,4 +1,4 @@
-import "githublint" as linter;
+import "linter" as linter;
 import "rule" as rule;
 
 def operate($args):
