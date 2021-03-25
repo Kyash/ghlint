@@ -50,6 +50,7 @@ function main() {
   [ -z "$rc_file" ] || docker_run_opts+=(-v "$rc_file:/home/curl_user/.githublintrc.json")
 
   docker run --name "$CONTAINER_NAME" --rm -e GITHUB_TOKEN \
+    --mount "type=tmpfs,destination=/tmp" \
     --mount "type=volume,src=githublint,dst=/home/curl_user/.githublint" \
     "${docker_run_opts[@]+"${docker_run_opts[@]}"}" \
     "$image" "${args[@]+"${args[@]}"}"
