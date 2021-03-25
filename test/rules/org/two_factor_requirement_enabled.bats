@@ -2,7 +2,8 @@
 
 setup() {
   PATH="$BATS_TEST_DIRNAME/../../../src:$PATH"
-  load "../../../src/rules/org/two_factor_requirement_enabled.sh"
+  load "../../../src/rules.sh"
+  rules::declare
   cd "$(mktemp -d)"
 }
 

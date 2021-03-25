@@ -2,7 +2,8 @@
 
 setup() {
   PATH="$BATS_TEST_DIRNAME/../../../src:$PATH"
-  load "../../../src/rules/repo/manage_team_access.sh"
+  load "../../../src/rules.sh"
+  rules::declare
   cd "$(mktemp -d)"
 }
 

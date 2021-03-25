@@ -2,7 +2,8 @@
 
 setup() {
   PATH="$BATS_TEST_DIRNAME/../../../src:$PATH"
-  load "../../../src/rules/repo/protect_branches.sh"
+  load "../../../src/rules.sh"
+  rules::declare
   cd "$(mktemp -d)"
 }
 

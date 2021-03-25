@@ -53,7 +53,6 @@ source "rules.sh"
   sources_file="$(mktemp)"
   {
     reporter::sources
-    rules::sources
   } | while read -r file
   do
     echo source "$file"
@@ -82,6 +81,8 @@ function main() {
   local extensions="${GITHUBLINT_EXTENSIONS:-stats.commit_activity,teams,codeowners,branches}"
   local rc_file="${GITHUBLINT_RC_FILE:-.githublintrc.json}"
   local parallelism="${GITHUBLINT_PARALLELISM:-100}"
+
+  rules::declare
 
   trap finally EXIT
 

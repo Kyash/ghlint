@@ -1,11 +1,6 @@
-import "githublint" as lint;
-
-def describe($signature):
-  {
-    $signature,
-    name: "Protect branches"
-  }
-;
+module {
+  name: "Protect branches"
+};
 
 def default_configure:
   {
@@ -51,14 +46,3 @@ def analyze:
     end
   ) | .[]
 ;
-
-$ARGS.positional as $args |
-$args[0] as $signature |
-$args[1] as $action |
-($args[2] // "{}" | fromjson) as $configure |
-(describe($signature) | lint::describe) as $descriptor |
-if $action == "describe" then
-  $descriptor
-else
-  lint::analyze(analyze; default_configure + $configure; $descriptor)
-end
