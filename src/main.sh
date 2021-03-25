@@ -34,6 +34,8 @@ function path::realize() {
 SHELL_SOURCE="$(path::absolutisation "$(path::realize "${BASH_SOURCE[0]}")")"
 declare -r SHELL_SOURCE
 PATH="$(dirname "$SHELL_SOURCE"):$PATH"
+# shellcheck source=./src/functions.sh
+source "functions.sh"
 # shellcheck source=./src/github.sh
 source "github.sh"
 # shellcheck source=./src/http.sh
@@ -116,7 +118,7 @@ function main() {
   }
 
   local profile_dir
-  profile_dir="$HOME/.githublint/$(echo "$GITHUB_TOKEN" | md5sum | cut -d' ' -f1)"
+  profile_dir="$HOME/.githublint/$(echo "$GITHUB_TOKEN" | crypto::hash)"
   declare -r PROFILE_DIR="$profile_dir"
   http::mkcache "$PROFILE_DIR" >/dev/null
 
