@@ -34,6 +34,7 @@ function path::realize() {
 SHELL_SOURCE="$(path::absolutisation "$(path::realize "${BASH_SOURCE[0]}")")"
 declare -r SHELL_SOURCE
 PATH="$(dirname "$SHELL_SOURCE"):$PATH"
+
 # shellcheck source=./src/functions.sh
 source "functions.sh"
 # shellcheck source=./src/github.sh
@@ -50,18 +51,6 @@ source "logging.sh"
 source "reporter.sh"
 # shellcheck source=./src/reporter.sh
 source "rules.sh"
-
-{
-  sources_file="$(mktemp)"
-  {
-    reporter::sources
-  } | while read -r file
-  do
-    echo source "$file"
-  done > "$sources_file"
-  # shellcheck source=/dev/null
-  source "$sources_file"
-}
 
 function usage() {
   {
@@ -85,6 +74,7 @@ function main() {
   local parallelism="${GITHUBLINT_PARALLELISM:-100}"
 
   rules::declare
+  reporter::declare
 
   trap finally EXIT
 

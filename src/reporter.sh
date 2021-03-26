@@ -8,3 +8,13 @@ function reporter::list() {
 function reporter::sources() {
   find "${BASH_SOURCE[0]%.*}" -name '*.sh'
 }
+
+function reporter::declare() {
+  sources_file="$(mktemp)"
+  reporter::sources | while read -r file
+  do
+    echo source "$file"
+  done > "$sources_file"
+  # shellcheck source=/dev/null
+  source "$sources_file"
+}
