@@ -73,10 +73,10 @@ function main() {
   local rc_file="${GITHUBLINT_RC_FILE:-.githublintrc.json}"
   local parallelism="${GITHUBLINT_PARALLELISM:-100}"
 
+  trap finally EXIT
+
   rules::declare
   reporter::declare
-
-  trap finally EXIT
 
   while getopts "c:de:f:hp:r:x" opt
   do
@@ -103,7 +103,7 @@ function main() {
   [ "${xtrace:-0}" -eq 0 ] || {
     [ "${LOG_LEVEL:-0}" -ge 9 ] || LOG_LEVEL=9
     BASH_XTRACEFD=4
-    PS4='+ ${BASH_SOURCE}:${LINENO}${FUNCNAME:+ - ${FUNCNAME}()} | '
+    PS4='+ ${EPOCHREALTIME} ${BASH_SOURCE}:${LINENO}${FUNCNAME:+ - ${FUNCNAME}()} | '
     set -x
   }
 
@@ -145,7 +145,7 @@ function main() {
   [ "${debug:-0}" -eq 0 ] || {
     printf 'Run-Control file was found. '
     jq -njM 'import ".githublintrc" as $rc; $rc'
-  } | logging::debug
+  } | LOG_ASYNC='' logging::debug
 
   http::clean_cache &
   local cleaning_job_pid="$!"
