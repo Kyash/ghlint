@@ -110,7 +110,7 @@ function main() {
   local profile_dir
   profile_dir="$HOME/.githublint/$(echo "$GITHUB_TOKEN" | crypto::hash)"
   declare -r PROFILE_DIR="$profile_dir"
-  http::mkcache "$PROFILE_DIR" >/dev/null
+  http::chcache "$PROFILE_DIR"
 
   [ "${LOG_LEVEL:-0}" -lt 8 ] || {
     {

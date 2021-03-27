@@ -35,6 +35,25 @@ function array::last() {
   echo "${@:$#:1}"
 }
 
+function array::includes() {
+  local usage="usage: ${FUNCNAME[0]} -e PATTERN... [-i INDEX] VALUE..."
+  local patterns=()
+  local index=1
+  OPTIND=1
+  while getopts 'e:i:' OPT
+  do
+    case "$OPT" in
+      e) patterns+=(-e "$OPTARG") ;;
+      i) index=$(( OPTARG + 1 )) ;;
+      *) echo "$usage" >&2 && exit 1 ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+  [ "${#patterns[@]}" -gt 0 ] || { echo "$usage" >&2 && exit 1; }
+
+  printf '%s\n' "${@:$index}" | grep -qx "${patterns[@]}"
+}
+
 function stream::slice() {
   local offset="${1:-0}"
   local length="${2:--0}"

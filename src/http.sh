@@ -10,17 +10,19 @@ source "logging.sh"
 
 declare CURL_OPTS=${CURL_OPTS:--s}
 
-function http::mkcache() {
+function http::chcache() {
   local cache_dir
-  cache_dir="${1:-$(mktemp -d)}/cache"
-  mkdir -p "$cache_dir" && echo "$cache_dir"
+  cache_dir="${1}/cache"
+  mkdir -p "$cache_dir"
+  HTTP_CACHE_DIR="$cache_dir"
+  HTTP_CACHE_INDEX_FILE="$HTTP_CACHE_DIR/index.txt"
+  touch "$HTTP_CACHE_INDEX_FILE"
 }
 
 declare -p HTTP_CACHE_DIR &>/dev/null || {
-  declare HTTP_CACHE_DIR
-  HTTP_CACHE_DIR="$(http::mkcache '')"
-  declare HTTP_CACHE_INDEX_FILE="$HTTP_CACHE_DIR/index.txt"
-  touch "$HTTP_CACHE_INDEX_FILE"
+  declare HTTP_CACHE_DIR=''
+  declare HTTP_CACHE_INDEX_FILE=''
+  http::chcache "$(mktemp -d)"
 }
 
 function http::configure_curl() {

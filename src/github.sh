@@ -51,7 +51,9 @@ function github::list() {
   '
   github::fetch "${url}" -I "$@" | jq -Rsr --arg url "$url" "$filter" | url::parse | jq -r "$filter2" | while IFS= read -r page
   do
-    github::fetch "$url" "$@" -G -d "page=$page"
+    local opts=()
+    [ "$page" -le 1 ] || opts+=(-G -d "page=$page")
+    github::fetch "$url" "$@" "${opts[@]}"
   done
 }
 
@@ -63,7 +65,7 @@ function github::fetch() {
   cache_index_json="$(mktemp)"
   {
     flock -s 6
-    http::find_cache "$url" || echo 'null'
+    ! array::includes -e '-[0-9a-zA-Z]*\(I\|G\)[0-9a-zA-z]*' -e '--get' -e '--hader' -- "$@" && http::find_cache "$url" || echo 'null'
   } 6>>"$HTTP_CACHE_INDEX_FILE" >"$cache_index_json" <"$HTTP_CACHE_INDEX_FILE"
 
   local filter2='import "http" as http; . // empty | http::filter_up_to_date_cache_index(.; .) | .file'
