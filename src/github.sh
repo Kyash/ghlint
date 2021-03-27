@@ -64,22 +64,21 @@ function github::fetch() {
   local cache_index_json
   cache_index_json="$(mktemp)"
   {
-    flock -s 6
     ! array::includes -e '-[0-9a-zA-Z]*\(I\|G\)[0-9a-zA-z]*' -e '--get' -e '--hader' -- "$@" && http::find_cache "$url" || echo 'null'
-  } 6>>"$HTTP_CACHE_INDEX_FILE" >"$cache_index_json" <"$HTTP_CACHE_INDEX_FILE"
+  } >"$cache_index_json"
 
-  local filter2='import "http" as http; . // empty | http::filter_up_to_date_cache_index(.; .) | .file'
-  IFS='' read -r cache_file < <(jq -r "$filter2" "$cache_index_json") || :
-  if [ -f "$cache_file" ]
+  local filter2='import "http" as http; . // empty | http::filter_up_to_date_cache_index(.; .)'
+  if jq -e "$filter2" <"$cache_index_json" | http::respond_from_cache
   then
-    cat "$cache_file"
     logging::debug 'Respond from the cache instead of %s' "$url"
     return 0
-  fi || :
+  fi
 
   local filter='."last-modified" | if type == "object" then ["-H", "If-Modified-Since: \(.string)"] | @tsv else empty end'
-  IFS=$'\t' read -ra options < <(jq -r "$filter" "$cache_index_json") || :
-  http::request "$url" "$@" "${options[@]}" -g -f --fail-early github:_callback_fetch
+  jq -r "$filter" <"$cache_index_json" | {
+    IFS=$'\t' read -ra options || :
+    http::request "$url" "$@" "${options[@]}" -g -f --fail-early github:_callback_fetch
+  }
 }
 
 function github:_callback_fetch() {
@@ -134,7 +133,6 @@ function github::find_blob() {
 
 function github::fetch_content() {
   local url="$1"
-  local filter='.content | gsub("\\s"; "") | @base64d'
   [ "${url}" != 'null' ] || return 1
   github::fetch "$url" | jq -r '.content | gsub("\\s"; "") | @base64d'
 }

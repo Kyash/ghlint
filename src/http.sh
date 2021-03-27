@@ -132,7 +132,10 @@ function http::find_cache() {
   local url_effective="$1"
   local index
   index="$(echo "$url_effective" | crypto::hash)"
-  grep "^${index}\t" |
+  {
+    flock -s 6
+    grep -e "^${index}\t"
+  } 6>>"$HTTP_CACHE_INDEX_FILE" <"$HTTP_CACHE_INDEX_FILE" |
     jq -R 'import "http" as http; http::parse_cache_index' |
     jq -esr --arg url "$url_effective" \
       '.[] | select(.url_effective == $url) | reduce . as $e (null; if ($e.date.unixtime > .date.unixtime) then $e else . end)'
@@ -155,12 +158,9 @@ function http::callback_respond_from_cache() {
     do
       if [ "$http_code" = "304" ]
       then
-        {
-          flock -s 6
-          http::find_cache "$url_effective" | http::respond_from_cache &&
-            logging::debug 'Respond from the cache instead of %s' "$url_effective"
-        } 6>>"$HTTP_CACHE_INDEX_FILE" <"$HTTP_CACHE_INDEX_FILE" || return 24
-      fi
+        http::find_cache "$url_effective" | http::respond_from_cache &&
+          logging::debug 'Respond from the cache instead of %s' "$url_effective"
+      fi || return 24
     done
   }
   return "$exit_status"
