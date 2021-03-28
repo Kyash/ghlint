@@ -240,13 +240,11 @@ function main() {
                   flock 6
                   json_seq::new "$repo_dump" "$rules_dump" "$results_dump"
                 } 6>> "$lock_file"
-              } &
-              if [ "$parallelism" -lt 1 ]
-              then
-                wait "$!"
-              else
-                job_pids+=("$!")
-              fi
+              } & job_pids+=("$!")
+              [ "$parallelism" -gt 0 ] || {
+                wait "${job_pids[@]}"
+                job_pids=()
+              }
             done
             local exit_status=0
             wait "${job_pids[@]}" || exit_status="$?"
@@ -273,7 +271,7 @@ function inspect() {
   LOG_ASYNC='' logging::debug '%s' "$(declare -p FUNCNAME)"
 }
 
-function finally () {
+function finally() {
   local exit_status="$?"
   LOG_ASYNC='' logging::debug 'command exited with status %d' "$exit_status"
   rm -f "$CURLRC_FILE"
