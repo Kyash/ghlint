@@ -85,3 +85,10 @@ function crypto::hash() {
 function process::count_running_jobs() {
   jobs -pr | wc -l
 }
+
+function process::wait() {
+  local exit_status=0
+  wait "$@" 2>/dev/null || exit_status="$?"
+  [ "$exit_status" -ne 127 ] || exit_status=0
+  return "$exit_status"
+}
