@@ -42,19 +42,14 @@ function github::list() {
       $url
     end
   '
-  # shellcheck disable=SC2016
-  local filter2='
-    import "url" as url;
-
-    . as $url |
-    (.searchParams.page // "" | if . == "" then 1 else tonumber end) as $num_of_pages | range($num_of_pages) | . + 1
-  '
-  github::fetch "${url}" -I "$@" | jq -Rsr --arg url "$url" "$filter" | url::parse | jq -r "$filter2" | while IFS= read -r page
-  do
-    local opts=()
-    [ "$page" -le 1 ] || opts+=(-G -d "page=$page")
-    github::fetch "$url" "$@" "${opts[@]}"
-  done
+  github::fetch "${url}" -I "$@" | jq -Rsr --arg url "$url" "$filter" |
+    url::parse | jq -r 'range(.searchParams.page // "" | if . == "" then 1 else tonumber end) | . + 1' |
+    while IFS= read -r page
+    do
+      local opts=()
+      [ "$page" -le 1 ] || opts+=(-G -d "page=$page")
+      github::fetch "$url" "$@" "${opts[@]}"
+    done
 }
 
 function github::fetch() {
@@ -161,24 +156,39 @@ function github::parse_codeowners() {
 function github::fetch_codeowners() {
   local repo="$1"
   local ref="$2"
-  {
-    { github::find_blob "$repo" "$ref" '^(|docs/|\.github/)CODEOWNERS$' || { echo '[]' | http::default_response; } } | jq '.[]' |
+  { github::find_blob "$repo" "$ref" '^(|docs/|\.github/)CODEOWNERS$' || { echo '[]' | http::default_response; } } | jq '.[]' | {
+    local job_pids=()
+    local dumps=()
     while IFS= read -r blob
     do
-      {
+      local dump_file
+      dump_file="$(mktemp)"
+      dumps+=("$dump_file")
+      jq -nr --argjson blob "${blob}" '$blob | [.path, .url] | @tsv' | {
         IFS=$'\t' read -r path url
         github::fetch_content "$url" | github::parse_codeowners | jq --arg path "$path" '{ $path, entries: . }'
-      } < <(jq -nr --argjson blob "${blob}" '$blob | [.path, .url] | @tsv')
+      } >"$dump_file" & job_pids+=("$!")
     done
+    local exit_status=0
+    [ "${#job_pids[@]}" -eq 0 ] || {
+      { process::wait "${job_pids[@]}" && cat "${dumps[@]}"; } || exit_status="$?"
+      rm "${dumps[@]}" &
+    }
+    return "$exit_status"
   } | jq -s
 }
 
 function github::fetch_branches() {
   local full_name="$1"
   github::list "${GITHUB_API_ORIGIN}/repos/$full_name/branches" | jq '.[]' | {
+    local job_pids=()
+    local dumps=()
     while IFS= read -r branch
     do
-      {
+      local dump_file
+      dump_file="$(mktemp)"
+      dumps+=("$dump_file")
+      jq -nr --argjson branch "$branch" '$branch | [.protected, .protection_url] | map(. // "") | .[]' | {
         IFS= read -r protected
         IFS= read -r protection_url
         if [ "$protected" = "true" ]
@@ -193,8 +203,14 @@ function github::fetch_branches() {
         else
           echo '{}'
         fi | jq --argjson branch "$branch" '$branch + .'
-      } < <(jq -nr --argjson branch "$branch" '$branch | [.protected, .protection_url] | map(. // "") | .[]')
+      } >"$dump_file" & job_pids+=("$!")
     done
+    local exit_status=0
+    [ "${#job_pids[@]}" -eq 0 ] || {
+      { process::wait "${job_pids[@]}" && cat "${dumps[@]}"; } || exit_status="$?"
+      rm "${dumps[@]}" &
+    }
+    return "$exit_status"
   } | jq -s
 }
 
@@ -233,8 +249,7 @@ function github::fetch_repository() {
           exit_status="$?"
         logging::debug '%s %s JSON size: %d' "$full_name" "$extension" "$(wc -c < "$dump_file")"
         exit "$exit_status"
-      } &
-      job_pids+=("$!")
+      } & job_pids+=("$!")
       LOG_ASYNC='' logging::trace '| %s() (PID: %d)' "$funcname" "$!"
     done
     LOG_ASYNC='' logging::trace '%s' "$(declare -p dumps)"
@@ -254,7 +269,7 @@ function github::fetch_repository() {
     repo_dump="$(mktemp)"
     jq -s 'add' <(echo "$repo") "${dumps[@]}" | tee "$repo_dump"
     logging::debug '%s repository JSON size: %d' "$full_name" "$(wc -c < "$repo_dump")"
-
+    rm "$repo_dump" "${dumps[@]}" &
     return "$exit_status"
   }
 }
