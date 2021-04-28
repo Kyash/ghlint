@@ -2,9 +2,9 @@
 
 set -ueo pipefail
 
-LOG_LEVEL="${GITHUBLINT_LOG_LEVEL:-6}"
+LOG_LEVEL="${GHLINT_LOG_LEVEL:-6}"
 # shellcheck disable=SC2034
-LOG_ASYNC="${GITHUBLINT_LOG_ASYNC:-true}"
+LOG_ASYNC="${GHLINT_LOG_ASYNC:-true}"
 
 function path::isabsolute() {
   test "${1:0:1}" = "/"
@@ -65,13 +65,13 @@ function usage() {
 }
 
 function main() {
-  local debug="${GITHUBLINT_DEBUG:-0}"
-  local xtrace="${GITHUBLINT_XTRACE:-0}"
-  local repo_filter="${GITHUBLINT_REPO_FILTER:-.}"
-  local reporter="${GITHUBLINT_REPORTER:-tsv}"
-  local extensions="${GITHUBLINT_EXTENSIONS:-stats.commit_activity,teams,codeowners,branches}"
-  local rc_file="${GITHUBLINT_RC_FILE:-.githublintrc.json}"
-  local parallelism="${GITHUBLINT_PARALLELISM:-100}"
+  local debug="${GHLINT_DEBUG:-0}"
+  local xtrace="${GHLINT_XTRACE:-0}"
+  local repo_filter="${GHLINT_REPO_FILTER:-.}"
+  local reporter="${GHLINT_REPORTER:-tsv}"
+  local extensions="${GHLINT_EXTENSIONS:-stats.commit_activity,teams,codeowners,branches}"
+  local rc_file="${GHLINT_RC_FILE:-.ghlintrc.json}"
+  local parallelism="${GHLINT_PARALLELISM:-100}"
 
   trap finally EXIT
 
@@ -108,7 +108,7 @@ function main() {
   }
 
   local profile_dir
-  profile_dir="$HOME/.githublint/$(echo "$GITHUB_TOKEN" | crypto::hash)"
+  profile_dir="$HOME/.ghlint/$(echo "$GITHUB_TOKEN" | crypto::hash)"
   declare -r PROFILE_DIR="$profile_dir"
   http::chcache "$PROFILE_DIR"
 
@@ -140,11 +140,11 @@ function main() {
     cat < "$rc_file"
   else
     echo '{}'
-  fi > ".githublintrc.json"
+  fi > ".ghlintrc.json"
 
   [ "${debug:-0}" -eq 0 ] || {
     printf 'Run-Control file was found. '
-    jq -njM 'import ".githublintrc" as $rc; $rc'
+    jq -njM 'import ".ghlintrc" as $rc; $rc'
   } | LOG_ASYNC='' logging::debug
 
   http::clean_cache &

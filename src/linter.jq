@@ -1,4 +1,4 @@
-import ".githublintrc" as $rc;
+import ".ghlintrc" as $rc;
 
 def log(l; f):
   . as $o | (f | l) | $o
@@ -18,7 +18,7 @@ def describe:
       description: null,
       severity: "Low",
       confidence: "Low",
-      help: "https://github.com/Kyash/githublint/wiki/\(.signature)",
+      help: "https://github.com/Kyash/ghlint/wiki/\(.signature)",
       tags: []
     } + .
   else

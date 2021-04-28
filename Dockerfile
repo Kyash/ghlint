@@ -3,16 +3,16 @@ USER root
 RUN \
   apk add --no-cache bash nodejs && \
   curl -sSfLo /usr/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && chmod +x /usr/bin/jq
-RUN ln -s /usr/local/lib/githublint/main.sh /usr/local/bin/githublint
+RUN ln -s /usr/local/lib/ghlint/main.sh /usr/local/bin/ghlint
 
 FROM stage-0 as stage-1
 USER curl_user
 WORKDIR /home/curl_user
-RUN mkdir -p .githublint
-VOLUME [ "/home/curl_user/.githublint" ]
+RUN mkdir -p .ghlint
+VOLUME [ "/home/curl_user/.ghlint" ]
 
 FROM stage-1 as stage-deply
-COPY src /usr/local/lib/githublint
+COPY src /usr/local/lib/ghlint
 
 FROM stage-deply as stage-prd
 ARG CREATED
@@ -23,18 +23,18 @@ LABEL \
   org.opencontainers.image.authors= \
   org.opencontainers.image.url= \
   org.opencontainers.image.documentation= \
-  org.opencontainers.image.source=https://github.com/kyash/githublint \
+  org.opencontainers.image.source=https://github.com/kyash/ghlint \
   org.opencontainers.image.version=${VERSION} \
   org.opencontainers.image.revision=${REVISION} \
   org.opencontainers.image.vendor="Kyash Inc." \
   org.opencontainers.image.licenses= \
-  org.opencontainers.image.title="githublint" \
+  org.opencontainers.image.title="ghlint" \
   org.opencontainers.image.description="Find problems in your GitHub settings." \
   Maintainer= \
   Name= \
   Version= \
   docker.cmd=
-ENTRYPOINT [ "githublint" ]
+ENTRYPOINT [ "ghlint" ]
 
 FROM stage-1 as stage-dev
 USER root

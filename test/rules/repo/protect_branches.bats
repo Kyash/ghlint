@@ -21,7 +21,7 @@ setup() {
   local resources_dump
   resources_dump="$(mktemp)"
   jq -n '{ allow_force_pushes: { enabled: true } }' |
-  jq '{ name: "githublint", default_branch: "main", branches: [ { name: "main", protected: true, protection: . } ] }' |
+  jq '{ name: "ghlint", default_branch: "main", branches: [ { name: "main", protected: true, protection: . } ] }' |
     jq '{ resources: { repositories: [.] } }' \
     >"$resources_dump"
 

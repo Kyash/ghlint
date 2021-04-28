@@ -23,7 +23,7 @@ setup() {
 
   local resources_dump
   resources_dump="$(mktemp)"
-  jq -n '{ name: "githublint", url: "https://api.github.com/repos/Kyash/githublint" }' |
+  jq -n '{ name: "ghlint", url: "https://api.github.com/repos/Kyash/ghlint" }' |
     jq '{ resources: { repositories: [.] } }' \
     >"$resources_dump"
 

@@ -2,11 +2,11 @@
 
 set -ue
 
-declare -r VERSION="${GITHUBLINT_VERSION:-latest}"
-declare -r IMANGE="${GITHUBLINT_IMANGE:-}"
-declare -r DOCKERFILE="${GITHUBLINT_DOCKERFILE:-}"
+declare -r VERSION="${GHLINT_VERSION:-latest}"
+declare -r IMANGE="${GHLINT_IMANGE:-}"
+declare -r DOCKERFILE="${GHLINT_DOCKERFILE:-}"
 declare -r BUILD_OPTS=(--target stage-prd --file "$DOCKERFILE")
-declare -r CONTAINER_NAME="githublint_$$"
+declare -r CONTAINER_NAME="ghlint_$$"
 
 function finally () {
   command -v docker >/dev/null || return
@@ -19,7 +19,7 @@ function finally () {
 function main() {
   trap finally EXIT
 
-  local default_rc_file="$PWD/.githublintrc.json"
+  local default_rc_file="$PWD/.ghlintrc.json"
   local rc_file=''
   ! [ -f "$default_rc_file" ] || rc_file="$default_rc_file"
 
@@ -36,7 +36,7 @@ function main() {
   shift $((OPTIND - 1))
   args+=("$@")
 
-  local image="docker.pkg.github.com/kyash/githublint/githublint:${VERSION}"
+  local image="docker.pkg.github.com/kyash/ghlint/ghlint:${VERSION}"
   if [ -n "$IMANGE" ]
   then
     image="$IMANGE"
@@ -47,11 +47,11 @@ function main() {
 
   docker_run_opts=()
   [ "${rc_file:0:1}" = '/' ] || rc_file="$PWD/$rc_file"
-  [ -z "$rc_file" ] || docker_run_opts+=(-v "$rc_file:/home/curl_user/.githublintrc.json")
+  [ -z "$rc_file" ] || docker_run_opts+=(-v "$rc_file:/home/curl_user/.ghlintrc.json")
 
   docker run --name "$CONTAINER_NAME" --rm -e GITHUB_TOKEN \
     --mount "type=tmpfs,destination=/tmp" \
-    --mount "type=volume,src=githublint,dst=/home/curl_user/.githublint" \
+    --mount "type=volume,src=ghlint,dst=/home/curl_user/.ghlint" \
     "${docker_run_opts[@]+"${docker_run_opts[@]}"}" \
     "$image" "${args[@]+"${args[@]}"}"
 }

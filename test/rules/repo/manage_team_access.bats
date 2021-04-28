@@ -20,7 +20,7 @@ setup() {
 
   local resources_dump
   resources_dump="$(mktemp)"
-  jq -n '{ name: "githublint", teams: [ { slug: "bar", permission: "push" } ] }' |
+  jq -n '{ name: "ghlint", teams: [ { slug: "bar", permission: "push" } ] }' |
     jq '{ resources: { repositories: [.] } }' \
     >"$resources_dump"
 

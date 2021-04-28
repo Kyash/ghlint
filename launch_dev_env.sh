@@ -4,7 +4,7 @@ set -ueo pipefail
 
 declare -r DOCKERFILE="${DOCKERFILE:-Dockerfile}"
 declare -r BUILD_OPTS=(--target stage-dev --file "$DOCKERFILE")
-declare -r CONTAINER_NAME="${CONTAINER_NAME:-githublint_dev_env}"
+declare -r CONTAINER_NAME="${CONTAINER_NAME:-ghlint_dev_env}"
 
 function finally () {
   docker stop "$CONTAINER_NAME"

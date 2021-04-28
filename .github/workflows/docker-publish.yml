@@ -15,7 +15,7 @@ name: Docker
   pull_request:
 
 env:
-  IMAGE_NAME: githublint
+  IMAGE_NAME: ghlint
   BUILD_OPTS: --target stage-prd --file Dockerfile
 
 jobs:

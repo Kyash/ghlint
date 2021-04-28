@@ -1,15 +1,15 @@
-# githublint
+# ghlint
 
-[![Docker](https://github.com/Kyash/githublint/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Kyash/githublint/actions/workflows/docker-publish.yml)
+[![Docker](https://github.com/Kyash/ghlint/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Kyash/ghlint/actions/workflows/docker-publish.yml)
 
 Find problems in your GitHub settings.
 
 ## Installation
 
 ```sh
-git clone git@github.com:Kyash/githublint.git
-cd githublint
-install -m 755 ./bin/githublint /usr/local/bin
+git clone git@github.com:Kyash/ghlint.git
+cd ghlint
+install -m 755 ./bin/ghlint /usr/local/bin
 ```
 
 ## Prerequisites
@@ -21,13 +21,13 @@ install -m 755 ./bin/githublint /usr/local/bin
 Displayed by executing the following command:
 
 ```sh
-githublint -h
+ghlint -h
 ```
 
 ### Example
 
 ```
-githublint orgs/Kyash > results.tsv
+ghlint orgs/Kyash > results.tsv
 ```
 
 ## Exit status
@@ -38,7 +38,7 @@ githublint orgs/Kyash > results.tsv
 
 ## Configure rules
 
-Describe the rule settings in `.githublintrc.json`.
+Describe the rule settings in `.ghlintrc.json`.
 
 - For example, describe `rules::repo::manage_team_access` settings in `.rules.repo.manage_team_access.patterns` element
 - Multiple settings can be described in `patterns` element
@@ -107,4 +107,4 @@ bats -r test
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/Kyash/githublint
+Bug reports and pull requests are welcome on GitHub at https://github.com/Kyash/ghlint

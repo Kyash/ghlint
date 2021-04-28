@@ -3,11 +3,11 @@
 @test "Integration test" {
   command -v docker >/dev/null || skip
 
-  local expected="${GITHUB_REPOSITORY:-Kyash/githublint}"
+  local expected="${GITHUB_REPOSITORY:-Kyash/ghlint}"
   local org="${expected%/*}"
   local resulet_file
   resulet_file="$(mktemp)"
-  { docker run --rm -e GITHUB_TOKEN -e GITHUBLINT_XTRACE \
+  { docker run --rm -e GITHUB_TOKEN -e GHLINT_XTRACE \
     "$(docker build . -q --target stage-prd --file Dockerfile)" \
     -df "select(.full_name == \"$expected\")" "orgs/$org" |
     tee "$resulet_file"

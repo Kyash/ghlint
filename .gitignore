@@ -4,4 +4,4 @@
 .vscode/
 .curlrc
 .dccache
-/.githublintrc.json
+/.ghlintrc.json

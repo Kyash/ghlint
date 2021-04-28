@@ -20,7 +20,7 @@ setup() {
 
   local resources_dump
   resources_dump="$(mktemp)"
-  jq -n '{ name: "githublint", codeowners: [] }' |
+  jq -n '{ name: "ghlint", codeowners: [] }' |
     jq '{ resources: { repositories: [.] } }' \
     >"$resources_dump"
 
